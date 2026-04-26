@@ -255,7 +255,7 @@ btnUnspec.MouseButton1Click:Connect(function()
     end
 end)
 
--- Super Velocidade
+-- (Super Velocidade)
 btnSpeed.MouseButton1Click:Connect(function()
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = 80
