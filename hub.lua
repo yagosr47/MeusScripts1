@@ -1,5 +1,5 @@
 -- ==========================================
--- Hub Universal V10 - VERSÃO DEFINITIVA
+-- Hub Universal VFINAL - COMPLETO + TELA COMPACTA
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -32,17 +32,17 @@ local hitboxConnection = nil
 local corTema = Color3.fromRGB(0, 170, 255) 
 
 -- ==========================================
--- 1. CRIAÇÃO DA INTERFACE BASE
+-- 1. CRIAÇÃO DA INTERFACE BASE (TELA COMPACTA)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HubPremiumDefinitivo"
+screenGui.Name = "HubPremiumFinal"
 screenGui.ResetOnSpawn = false
 local success, _ = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = player:WaitForChild("PlayerGui") end
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 400, 0, 550) -- Tamanho ideal para caber tudo
-mainFrame.Position = UDim2.new(0.5, -200, 0.5, -275)
+mainFrame.Size = UDim2.new(0, 400, 0, 380) -- Altura compacta
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -190)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -86,7 +86,7 @@ minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
 
 -- ==========================================
--- SISTEMA DE ABAS E PÁGINAS
+-- SISTEMA DE ABAS E PÁGINAS (COM SCROLL AUTOMÁTICO)
 -- ==========================================
 local tabBar = Instance.new("Frame", mainFrame)
 tabBar.Size = UDim2.new(1, 0, 0, 35); tabBar.Position = UDim2.new(0, 0, 0, 35)
@@ -114,8 +114,14 @@ pageContainer.BackgroundTransparency = 1
 
 local function criarPagina()
     local page = Instance.new("ScrollingFrame", pageContainer)
-    page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1
-    page.ScrollBarThickness = 4; page.Visible = false
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.ScrollBarThickness = 4
+    page.Visible = false
+    -- ROLAGEM AUTOMÁTICA ATIVADA
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    
     local layout = Instance.new("UIListLayout", page)
     layout.Padding = UDim.new(0, 8); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     return page
@@ -191,7 +197,7 @@ end
 -- ==========================================
 -- PÁGINA 1: SCRIPTS GERAIS E APELÕES
 -- ==========================================
-Instance.new("Frame", pageScripts).Size = UDim2.new(1,0,0,1)
+Instance.new("Frame", pageScripts).Size = UDim2.new(1,0,0,1) -- Fix para margem inicial
 
 criarDivisoria("Combate e Vantagem Visual", pageScripts)
 local btnAimbot = criarBotaoSimples("Ativar Aimbot (Mira Automática)", pageScripts, Color3.fromRGB(200, 50, 50))
@@ -213,21 +219,14 @@ local btnSpec = criarBotaoSimples("Espionar Próximo Jogador", pageScripts)
 local btnUnspec = criarBotaoSimples("Parar Espionagem", pageScripts, Color3.fromRGB(100, 50, 50))
 
 -- >>> LÓGICAS DA PÁGINA 1 <<<
-
--- Hitbox Expandida
 btnHitbox.MouseButton1Click:Connect(function()
-    hitboxAtivada = not hitboxAtivada
-    btnHitbox.Text = hitboxAtivada and "Hitbox Expandida: ATIVADA" or "Expandir Hitbox (Acerto Fácil)"
+    hitboxAtivada = not hitboxAtivada; btnHitbox.Text = hitboxAtivada and "Hitbox Expandida: ATIVADA" or "Expandir Hitbox (Acerto Fácil)"
     if hitboxAtivada then
         hitboxConnection = RunService.RenderStepped:Connect(function()
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local hrp = p.Character.HumanoidRootPart
-                    hrp.Size = Vector3.new(15, 15, 15)
-                    hrp.Transparency = 0.5
-                    hrp.BrickColor = BrickColor.new("Bright blue")
-                    hrp.Material = Enum.Material.Neon
-                    hrp.CanCollide = false
+                    local hrp = p.Character.HumanoidRootPart; hrp.Size = Vector3.new(15, 15, 15); hrp.Transparency = 0.5
+                    hrp.BrickColor = BrickColor.new("Bright blue"); hrp.Material = Enum.Material.Neon; hrp.CanCollide = false
                 end
             end
         end)
@@ -235,29 +234,20 @@ btnHitbox.MouseButton1Click:Connect(function()
         if hitboxConnection then hitboxConnection:Disconnect(); hitboxConnection = nil end
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                p.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                p.Character.HumanoidRootPart.Transparency = 1
+                p.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1); p.Character.HumanoidRootPart.Transparency = 1
             end
         end
     end
 end)
 
--- Visão Noturna
 btnFullbright.MouseButton1Click:Connect(function()
-    fullbrightAtivado = not fullbrightAtivado
-    btnFullbright.Text = fullbrightAtivado and "Visão Noturna: ATIVADA" or "Visão Noturna (Claridade Máxima)"
-    if fullbrightAtivado then
-        Lighting.Brightness = 2; Lighting.ClockTime = 14; Lighting.FogEnd = 100000
-        Lighting.GlobalShadows = false; Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-    else
-        Lighting.Brightness = 1; Lighting.FogEnd = 10000; Lighting.GlobalShadows = true
-    end
+    fullbrightAtivado = not fullbrightAtivado; btnFullbright.Text = fullbrightAtivado and "Visão Noturna: ATIVADA" or "Visão Noturna (Claridade Máxima)"
+    if fullbrightAtivado then Lighting.Brightness = 2; Lighting.ClockTime = 14; Lighting.FogEnd = 100000; Lighting.GlobalShadows = false; Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    else Lighting.Brightness = 1; Lighting.FogEnd = 10000; Lighting.GlobalShadows = true end
 end)
 
--- Click TP
 btnClickTp.MouseButton1Click:Connect(function()
-    clickTpAtivado = not clickTpAtivado
-    btnClickTp.Text = clickTpAtivado and "Click TP: ATIVADO (Use CTRL+Click)" or "Teleporte por Clique (CTRL + Click)"
+    clickTpAtivado = not clickTpAtivado; btnClickTp.Text = clickTpAtivado and "Click TP: ATIVADO (Use CTRL+Click)" or "Teleporte por Clique (CTRL + Click)"
 end)
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and clickTpAtivado and input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -269,15 +259,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- Aimbot
 local function pegarInimigoMaisProximo()
     local alvoMaisProximo = nil; local menorDistancia = math.huge; local camera = workspace.CurrentCamera
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
             local posTela, naTela = camera:WorldToViewportPoint(p.Character.Head.Position)
             if naTela then
-                local centroTela = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                local distancia = (Vector2.new(posTela.X, posTela.Y) - centroTela).Magnitude
+                local centroTela = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2); local distancia = (Vector2.new(posTela.X, posTela.Y) - centroTela).Magnitude
                 if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
             end
         end
@@ -286,75 +274,40 @@ local function pegarInimigoMaisProximo()
 end
 btnAimbot.MouseButton1Click:Connect(function()
     aimbotAtivado = not aimbotAtivado; btnAimbot.Text = aimbotAtivado and "Aimbot: TRAVADO" or "Ativar Aimbot (Mira Automática)"
-    if aimbotAtivado then
-        aimbotConnection = RunService.RenderStepped:Connect(function()
-            local alvo = pegarInimigoMaisProximo(); if alvo then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, alvo.Position) end
-        end)
-    else
-        if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-    end
+    if aimbotAtivado then aimbotConnection = RunService.RenderStepped:Connect(function() local alvo = pegarInimigoMaisProximo(); if alvo then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, alvo.Position) end end)
+    else if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end end
 end)
 
--- Pulo Infinito
-btnPuloInf.MouseButton1Click:Connect(function()
-    puloInfinitoAtivado = not puloInfinitoAtivado
-    btnPuloInf.Text = puloInfinitoAtivado and "Pulo Infinito: ATIVADO" or "Ativar Pulo Infinito no Ar"
-end)
-UserInputService.JumpRequest:Connect(function()
-    if puloInfinitoAtivado and player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-end)
+btnPuloInf.MouseButton1Click:Connect(function() puloInfinitoAtivado = not puloInfinitoAtivado; btnPuloInf.Text = puloInfinitoAtivado and "Pulo Infinito: ATIVADO" or "Ativar Pulo Infinito no Ar" end)
+UserInputService.JumpRequest:Connect(function() if puloInfinitoAtivado and player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
 
--- Noclip
 btnNoclip.MouseButton1Click:Connect(function()
     noclipAtivado = not noclipAtivado; btnNoclip.Text = noclipAtivado and "Atravessar Parede: ATIVADO" or "Atravessar Parede (Noclip)"
-    if noclipAtivado then
-        noclipConnection = RunService.Stepped:Connect(function()
-            if player.Character then
-                for _, part in pairs(player.Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
-                end
-            end
-        end)
+    if noclipAtivado then noclipConnection = RunService.Stepped:Connect(function() if player.Character then for _, part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end end)
     else if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end end
 end)
 
--- Modo Deus
 btnGodMode.MouseButton1Click:Connect(function()
     modoDeus = not modoDeus; btnGodMode.Text = modoDeus and "Modo Deus: ATIVADO" or "Ativar Modo Deus (Client-Side)"
-    if modoDeus then
-        godModeConnection = RunService.RenderStepped:Connect(function()
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.MaxHealth = math.huge; player.Character.Humanoid.Health = math.huge
-            end
-        end)
+    if modoDeus then godModeConnection = RunService.RenderStepped:Connect(function() if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.MaxHealth = math.huge; player.Character.Humanoid.Health = math.huge end end)
     else if godModeConnection then godModeConnection:Disconnect() end end
 end)
 
--- ESP
 btnEsp.MouseButton1Click:Connect(function()
     espAtivado = not espAtivado; btnEsp.Text = espAtivado and "ESP: ATIVADO" or "Ativar ESP (Ver Nomes na Parede)"
     if espAtivado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
-                local bgui = Instance.new("BillboardGui", p.Character.Head)
-                bgui.Name = "ESPTag"; bgui.Size = UDim2.new(0, 200, 0, 50); bgui.AlwaysOnTop = true
-                local txt = Instance.new("TextLabel", bgui)
-                txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Text = p.Name
+                local bgui = Instance.new("BillboardGui", p.Character.Head); bgui.Name = "ESPTag"; bgui.Size = UDim2.new(0, 200, 0, 50); bgui.AlwaysOnTop = true
+                local txt = Instance.new("TextLabel", bgui); txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Text = p.Name
                 txt.TextColor3 = Color3.fromRGB(255, 255, 255); txt.TextStrokeTransparency = 0; txt.TextSize = 14; txt.Font = Enum.Font.GothamBold
             end
         end
     else
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("Head") then
-                local tag = p.Character.Head:FindFirstChild("ESPTag"); if tag then tag:Destroy() end
-            end
-        end
+        for _, p in pairs(Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("Head") then local tag = p.Character.Head:FindFirstChild("ESPTag"); if tag then tag:Destroy() end end end
     end
 end)
 
--- Invisibilidade Local
 btnInvis.MouseButton1Click:Connect(function()
     invisivel = not invisivel; btnInvis.Text = invisivel and "Invisibilidade: ATIVADA" or "Ativar Invisibilidade (Client-Side)"
     if player.Character then
@@ -365,20 +318,14 @@ btnInvis.MouseButton1Click:Connect(function()
     end
 end)
 
--- Espionagem
 btnSpec.MouseButton1Click:Connect(function()
-    local todos = Players:GetPlayers()
-    indexSpec = indexSpec + 1; if indexSpec > #todos then indexSpec = 1 end
+    local todos = Players:GetPlayers(); indexSpec = indexSpec + 1; if indexSpec > #todos then indexSpec = 1 end
     local alvo = todos[indexSpec]
-    if alvo.Character and alvo.Character:FindFirstChild("Humanoid") then
-        workspace.CurrentCamera.CameraSubject = alvo.Character.Humanoid; btnSpec.Text = "Espiando: " .. alvo.Name
-    end
+    if alvo.Character and alvo.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject = alvo.Character.Humanoid; btnSpec.Text = "Espiando: " .. alvo.Name end
 end)
 
 btnUnspec.MouseButton1Click:Connect(function()
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        workspace.CurrentCamera.CameraSubject = player.Character.Humanoid; btnSpec.Text = "Espionar Próximo Jogador"
-    end
+    if player.Character and player.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject = player.Character.Humanoid; btnSpec.Text = "Espionar Próximo Jogador" end
 end)
 
 -- ==========================================
@@ -437,11 +384,8 @@ btnAtualizarInv.MouseButton1Click:Connect(function()
             for _, prop in pairs(item:GetDescendants()) do
                 if prop:IsA("NumberValue") or prop:IsA("IntValue") then prop.Value = 99999; editouAlgo = true end
             end
-            if editouAlgo then
-                btnHackItem.Text = "Modificado!"; btnHackItem.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-            else
-                btnHackItem.Text = "Sem Valores"; btnHackItem.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-            end
+            if editouAlgo then btnHackItem.Text = "Modificado!"; btnHackItem.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+            else btnHackItem.Text = "Sem Valores"; btnHackItem.BackgroundColor3 = Color3.fromRGB(150, 50, 50) end
         end)
     end
 end)
@@ -460,16 +404,16 @@ end
 
 criarTituloSecao("Cor Principal do Hub:", pageConfig)
 local cores = {
-    {"Azul Neon", Color3.fromRGB(0, 170, 255)},
-    {"Vermelho Sangue", Color3.fromRGB(255, 50, 50)},
-    {"Verde Hacker", Color3.fromRGB(50, 255, 50)},
-    {"Rosa Choque", Color3.fromRGB(255, 0, 255)}
+    {"Azul Neon", Color3.fromRGB(0, 170, 255)}, {"Vermelho Sangue", Color3.fromRGB(255, 50, 50)},
+    {"Verde Hacker", Color3.fromRGB(50, 255, 50)}, {"Rosa Choque", Color3.fromRGB(255, 0, 255)}
 }
 for _, dados in ipairs(cores) do
     local btnCor = criarBotaoSimples(dados[1], pageConfig, dados[2])
     btnCor.Size = UDim2.new(0.9, 0, 0, 30); btnCor.TextColor3 = Color3.fromRGB(0,0,0)
     btnCor.MouseButton1Click:Connect(function()
-        corTema = dados[2]; mainStroke.Color = corTema; inputVel.TextColor3 = corTema; inputPulo.TextColor3 = corTema
+        corTema = dados[2]; mainStroke.Color = corTema
+        for _, obj in pairs(pageScripts:GetDescendants()) do if obj:IsA("TextBox") then obj.TextColor3 = corTema end end
+        for _, obj in pairs(pageScripts:GetDescendants()) do if obj:IsA("TextLabel") and obj.Text:match("^%-%-%-") then obj.TextColor3 = corTema end end
         for _, btn in pairs(tabBar:GetChildren()) do
             if btn:IsA("TextButton") and btn.Visible then
                 if btn.TextColor3 ~= Color3.fromRGB(200,200,200) then btn.TextColor3 = corTema end
@@ -496,15 +440,13 @@ Instance.new("Frame", pageSec).Size = UDim2.new(1,0,0,1)
 local infoSec = Instance.new("TextLabel", pageSec)
 infoSec.Size = UDim2.new(0.9, 0, 0, 60); infoSec.BackgroundTransparency = 1
 infoSec.Text = "Este scanner verifica nomes de arquivos locais suspeitos. Ele não detecta anti-cheats de servidor!"
-infoSec.TextColor3 = Color3.fromRGB(180, 180, 180); infoSec.TextWrapped = true
-infoSec.Font = Enum.Font.Gotham; infoSec.TextSize = 12
+infoSec.TextColor3 = Color3.fromRGB(180, 180, 180); infoSec.TextWrapped = true; infoSec.Font = Enum.Font.Gotham; infoSec.TextSize = 12
 
 local btnScan = criarBotaoSimples("Iniciar Verificação do Mapa", pageSec, Color3.fromRGB(80, 80, 80))
 local resultadoSec = Instance.new("TextLabel", pageSec)
 resultadoSec.Size = UDim2.new(0.9, 0, 0, 80); resultadoSec.BackgroundTransparency = 1
 resultadoSec.Text = "Status: Aguardando verificação..."
-resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 255); resultadoSec.TextWrapped = true
-resultadoSec.Font = Enum.Font.GothamBold; resultadoSec.TextSize = 14
+resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 255); resultadoSec.TextWrapped = true; resultadoSec.Font = Enum.Font.GothamBold; resultadoSec.TextSize = 14
 
 btnScan.MouseButton1Click:Connect(function()
     btnScan.Text = "Escaneando..."; resultadoSec.Text = "Procurando scripts suspeitos..."; resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 0)
@@ -537,7 +479,7 @@ minBtn.MouseButton1Click:Connect(function()
         mainFrame:TweenSize(UDim2.new(0, 400, 0, 35), "Out", "Quad", 0.3, true)
         tabBar.Visible = false; pageContainer.Visible = false
     else
-        mainFrame:TweenSize(UDim2.new(0, 400, 0, 550), "Out", "Quad", 0.3, true)
+        mainFrame:TweenSize(UDim2.new(0, 400, 0, 380), "Out", "Quad", 0.3, true)
         tabBar.Visible = true; pageContainer.Visible = true
     end
 end)
