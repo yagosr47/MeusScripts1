@@ -1,5 +1,5 @@
 -- ==========================================
--- Hub Universal V16 - ABA DE TROLLS ADICIONADA
+-- Hub Universal V17 - AIMBOT AUTOMÁTICO (MOBILE FRIENDLY)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -21,6 +21,7 @@ local modoDeus = false
 local noclipAtivado = false
 local aimbotAtivado = false
 local aimbotModoMouse = true 
+local aimbotAuto = true -- NOVO: Define se o Aimbot trava sozinho ou precisa segurar
 local puloInfinitoAtivado = false
 local hitboxAtivada = false
 local fullbrightAtivado = false
@@ -45,13 +46,13 @@ local corTema = Color3.fromRGB(0, 170, 255)
 -- 1. CRIAÇÃO DA INTERFACE BASE (COMPACTA)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HubPremiumV16"
+screenGui.Name = "HubPremiumV17"
 screenGui.ResetOnSpawn = false
 local success, _ = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = player:WaitForChild("PlayerGui") end
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 420, 0, 380) -- Um pouco mais largo para as 5 abas
+mainFrame.Size = UDim2.new(0, 420, 0, 380)
 mainFrame.Position = UDim2.new(0.5, -210, 0.5, -190)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 mainFrame.BorderSizePixel = 0
@@ -75,7 +76,7 @@ local titleText = Instance.new("TextLabel", titleBar)
 titleText.Size = UDim2.new(0.6, 0, 1, 0)
 titleText.Position = UDim2.new(0.05, 0, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = "HUB UNIVERSAL V16"
+titleText.Text = "HUB UNIVERSAL V17"
 titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleText.Font = Enum.Font.GothamBold
 titleText.TextSize = 14
@@ -94,7 +95,7 @@ minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
 
 -- ==========================================
--- SISTEMA DE 5 ABAS
+-- SISTEMA DE ABAS E PÁGINAS
 -- ==========================================
 local tabBar = Instance.new("Frame", mainFrame)
 tabBar.Size = UDim2.new(1, 0, 0, 35); tabBar.Position = UDim2.new(0, 0, 0, 35)
@@ -104,7 +105,7 @@ tabLayout.FillDirection = Enum.FillDirection.Horizontal
 
 local function criarAba(nome, ordem)
     local btn = Instance.new("TextButton", tabBar)
-    btn.Size = UDim2.new(0.2, 0, 1, 0) -- 5 abas = 20% (0.2) de largura para cada
+    btn.Size = UDim2.new(0.2, 0, 1, 0)
     btn.BackgroundTransparency = 1
     btn.Text = nome; btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.GothamSemibold; btn.TextSize = 12; btn.LayoutOrder = ordem
@@ -113,7 +114,7 @@ end
 
 local tabScripts = criarAba("Scripts", 1)
 local tabInv = criarAba("Inventário", 2)
-local tabTroll = criarAba("Trolls", 3) -- NOVA ABA AQUI
+local tabTroll = criarAba("Trolls", 3)
 local tabConfig = criarAba("Interface", 4)
 local tabSec = criarAba("Segurança", 5)
 
@@ -136,7 +137,7 @@ end
 
 local pageScripts = criarPagina()
 local pageInv = criarPagina()
-local pageTroll = criarPagina() -- NOVA PÁGINA AQUI
+local pageTroll = criarPagina()
 local pageConfig = criarPagina()
 local pageSec = criarPagina()
 pageScripts.Visible = true
@@ -223,12 +224,13 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ==========================================
--- PÁGINA 1: SCRIPTS GERAIS (MANTIDA IGUAL V15)
+-- PÁGINA 1: SCRIPTS GERAIS
 -- ==========================================
 Instance.new("Frame", pageScripts).Size = UDim2.new(1,0,0,1)
 
 criarDivisoria("Combate e Aimbot", pageScripts)
-local btnAimbot = criarBotaoSimples("Ativar Aimbot (Atira c/ Toque/Clique)", pageScripts, Color3.fromRGB(200, 50, 50))
+local btnAimbot = criarBotaoSimples("Ativar Aimbot", pageScripts, Color3.fromRGB(200, 50, 50))
+local btnAimbotTrigger = criarBotaoSimples("Gatilho Aimbot: Automático (Sem Segurar)", pageScripts, Color3.fromRGB(180, 80, 120)) -- NOVO GATILHO
 local btnAimbotMode = criarBotaoSimples("Modo Aimbot: Mais Próximo da Mira", pageScripts, Color3.fromRGB(150, 50, 100))
 local btnHitbox = criarBotaoSimples("Expandir Hitbox (Acerto Fácil)", pageScripts, Color3.fromRGB(200, 100, 50))
 local btnEsp = criarBotaoSimples("Ativar ESP (Com Distância)", pageScripts)
@@ -250,6 +252,13 @@ local btnCloneSkin = criarBotaoSimples("Clonar Skin (Do Alvo Espiado)", pageScri
 local btnUnspec = criarBotaoSimples("Parar Espionagem", pageScripts, Color3.fromRGB(100, 50, 50))
 
 -- >>> LÓGICAS DA PÁGINA 1 <<<
+
+-- Botão para alterar o Gatilho do Aimbot (Automático x Segurar)
+btnAimbotTrigger.MouseButton1Click:Connect(function()
+    aimbotAuto = not aimbotAuto
+    btnAimbotTrigger.Text = aimbotAuto and "Gatilho Aimbot: Automático (Sem Segurar)" or "Gatilho Aimbot: Ao Segurar (Touch/Click/Shift)"
+end)
+
 btnCloneSkin.MouseButton1Click:Connect(function()
     local alvo = Players:GetPlayers()[indexSpec] 
     if alvo and alvo ~= player and alvo.Character and player.Character then
@@ -292,10 +301,11 @@ local function pegarInimigoMaisProximo()
 end
 
 btnAimbot.MouseButton1Click:Connect(function()
-    aimbotAtivado = not aimbotAtivado; btnAimbot.Text = aimbotAtivado and "Aimbot: PRONTO (Toque/Clique/Shift)" or "Ativar Aimbot (Atira c/ Toque/Clique)"
+    aimbotAtivado = not aimbotAtivado; btnAimbot.Text = aimbotAtivado and "Aimbot: ATIVADO" or "Ativar Aimbot"
     if aimbotAtivado then 
         aimbotConnection = RunService.RenderStepped:Connect(function() 
-            if isAimingInput or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift) then
+            -- Nova Lógica: Trava se estiver no modo Automático OU se a pessoa decidir segurar a tela/shift
+            if aimbotAuto or isAimingInput or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift) then
                 local alvo = pegarInimigoMaisProximo(); if alvo then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, alvo.Position) end 
             end
         end)
@@ -397,7 +407,7 @@ end)
 btnUnspec.MouseButton1Click:Connect(function() if player.Character and player.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject = player.Character.Humanoid; btnSpec.Text = "Espionar Próximo Jogador" end end)
 
 -- ==========================================
--- PÁGINA 2: INVENTÁRIO 
+-- PÁGINA 2: INVENTÁRIO
 -- ==========================================
 Instance.new("Frame", pageInv).Size = UDim2.new(1,0,0,1)
 local infoInv = Instance.new("TextLabel", pageInv)
@@ -430,11 +440,11 @@ btnAtualizarInv.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- PÁGINA 3: NOVA ABA - TROLLS!
+-- PÁGINA 3: TROLLS
 -- ==========================================
 Instance.new("Frame", pageTroll).Size = UDim2.new(1,0,0,1)
 
-criarDivisoria("Física e Arremesso (Pode ser visto)", pageTroll)
+criarDivisoria("Física e Arremesso", pageTroll)
 local btnBeyblade = criarBotaoSimples("Tornado Fling (Bata nos outros)", pageTroll, Color3.fromRGB(200, 100, 0))
 local btnFoguete = criarBotaoSimples("Arremessar-se (Yeet)", pageTroll, Color3.fromRGB(100, 50, 200))
 
@@ -442,21 +452,13 @@ criarDivisoria("Ilusões Visuais (Apenas p/ Você)", pageTroll)
 local btnFakeBan = criarBotaoSimples("Gerar Fake Ban (Chat)", pageTroll, Color3.fromRGB(200, 0, 0))
 local btnFakeAdmin = criarBotaoSimples("Gerar Fake Admin (Chat)", pageTroll, Color3.fromRGB(0, 200, 0))
 
--- Lógica Beyblade (Tornado Fling)
 btnBeyblade.MouseButton1Click:Connect(function()
     beybladeAtivado = not beybladeAtivado
     btnBeyblade.Text = beybladeAtivado and "Tornado Fling: ATIVADO" or "Tornado Fling (Bata nos outros)"
-    
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if beybladeAtivado and hrp then
-        -- Desativa o pulo/cair natural e forca o giro extremo no corpo
         if not hrp:FindFirstChild("BeybladeFling") then
-            local bav = Instance.new("BodyAngularVelocity")
-            bav.Name = "BeybladeFling"
-            bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bav.AngularVelocity = Vector3.new(0, 1500, 0) -- Velocidade do giro
-            bav.Parent = hrp
-            beybladeObj = bav
+            local bav = Instance.new("BodyAngularVelocity"); bav.Name = "BeybladeFling"; bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge); bav.AngularVelocity = Vector3.new(0, 1500, 0); bav.Parent = hrp; beybladeObj = bav
         end
     else
         if beybladeObj then beybladeObj:Destroy(); beybladeObj = nil end
@@ -464,38 +466,13 @@ btnBeyblade.MouseButton1Click:Connect(function()
     end
 end)
 
--- Lógica Foguete (Joga o próprio player pra cima)
 btnFoguete.MouseButton1Click:Connect(function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local vel = Instance.new("BodyVelocity")
-        vel.MaxForce = Vector3.new(0, math.huge, 0)
-        vel.Velocity = Vector3.new(0, 500, 0) -- Joga muito alto
-        vel.Parent = hrp
-        task.wait(0.5) -- Deixa voando meio segundo
-        vel:Destroy()
-    end
+    if hrp then local vel = Instance.new("BodyVelocity"); vel.MaxForce = Vector3.new(0, math.huge, 0); vel.Velocity = Vector3.new(0, 500, 0); vel.Parent = hrp; task.wait(0.5); vel:Destroy() end
 end)
 
--- Lógica Chat Falso (Ban)
-btnFakeBan.MouseButton1Click:Connect(function()
-    StarterGui:SetCore("ChatMakeSystemMessage", {
-        Text = "[SISTEMA]: A sua conta foi denunciada multiplas vezes por exploração. A moderação analisará seu cliente em 5 minutos.",
-        Color = Color3.fromRGB(255, 0, 0),
-        Font = Enum.Font.SourceSansBold,
-        TextSize = 18
-    })
-end)
-
--- Lógica Chat Falso (Admin)
-btnFakeAdmin.MouseButton1Click:Connect(function()
-    StarterGui:SetCore("ChatMakeSystemMessage", {
-        Text = "[SERVER]: O criador do jogo acabou de entrar no seu servidor.",
-        Color = Color3.fromRGB(255, 255, 0),
-        Font = Enum.Font.SourceSansBold,
-        TextSize = 18
-    })
-end)
+btnFakeBan.MouseButton1Click:Connect(function() StarterGui:SetCore("ChatMakeSystemMessage", {Text = "[SISTEMA]: A sua conta foi denunciada multiplas vezes por exploração. A moderação analisará seu cliente em 5 minutos.", Color = Color3.fromRGB(255, 0, 0), Font = Enum.Font.SourceSansBold, TextSize = 18}) end)
+btnFakeAdmin.MouseButton1Click:Connect(function() StarterGui:SetCore("ChatMakeSystemMessage", {Text = "[SERVER]: O criador do jogo acabou de entrar no seu servidor.", Color = Color3.fromRGB(255, 255, 0), Font = Enum.Font.SourceSansBold, TextSize = 18}) end)
 
 -- ==========================================
 -- PÁGINA 4: CONFIGURAÇÕES DA INTERFACE
@@ -503,9 +480,7 @@ end)
 Instance.new("Frame", pageConfig).Size = UDim2.new(1,0,0,1)
 
 local function criarTituloSecaoConfig(texto, parent)
-    local txt = Instance.new("TextLabel", parent)
-    txt.Size = UDim2.new(0.9, 0, 0, 25); txt.BackgroundTransparency = 1; txt.Text = texto; txt.TextColor3 = Color3.fromRGB(255, 255, 255)
-    txt.Font = Enum.Font.GothamBold; txt.TextSize = 13; txt.TextXAlignment = Enum.TextXAlignment.Left
+    local txt = Instance.new("TextLabel", parent); txt.Size = UDim2.new(0.9, 0, 0, 25); txt.BackgroundTransparency = 1; txt.Text = texto; txt.TextColor3 = Color3.fromRGB(255, 255, 255); txt.Font = Enum.Font.GothamBold; txt.TextSize = 13; txt.TextXAlignment = Enum.TextXAlignment.Left
 end
 
 criarTituloSecaoConfig("Cor Principal do Hub:", pageConfig)
@@ -514,8 +489,7 @@ local cores = {
     {"Verde Hacker", Color3.fromRGB(50, 255, 50)}, {"Rosa Choque", Color3.fromRGB(255, 0, 255)}
 }
 for _, dados in ipairs(cores) do
-    local btnCor = criarBotaoSimples(dados[1], pageConfig, dados[2])
-    btnCor.Size = UDim2.new(0.9, 0, 0, 30); btnCor.TextColor3 = Color3.fromRGB(0,0,0)
+    local btnCor = criarBotaoSimples(dados[1], pageConfig, dados[2]); btnCor.Size = UDim2.new(0.9, 0, 0, 30); btnCor.TextColor3 = Color3.fromRGB(0,0,0)
     btnCor.MouseButton1Click:Connect(function()
         corTema = dados[2]; mainStroke.Color = corTema
         for _, obj in pairs(pageScripts:GetDescendants()) do if obj:IsA("TextBox") then obj.TextColor3 = corTema end end
@@ -540,48 +514,22 @@ btnOcultarBorda.MouseButton1Click:Connect(function() mainStroke.Enabled = not ma
 Instance.new("Frame", pageSec).Size = UDim2.new(1,0,0,1)
 
 local infoSec = Instance.new("TextLabel", pageSec)
-infoSec.Size = UDim2.new(0.9, 0, 0, 60); infoSec.BackgroundTransparency = 1
-infoSec.Text = "Este scanner verifica nomes de arquivos locais suspeitos. Ele não detecta anti-cheats de servidor!"
-infoSec.TextColor3 = Color3.fromRGB(180, 180, 180); infoSec.TextWrapped = true; infoSec.Font = Enum.Font.Gotham; infoSec.TextSize = 12
+infoSec.Size = UDim2.new(0.9, 0, 0, 60); infoSec.BackgroundTransparency = 1; infoSec.Text = "Este scanner verifica nomes de arquivos locais suspeitos. Ele não detecta anti-cheats de servidor!"; infoSec.TextColor3 = Color3.fromRGB(180, 180, 180); infoSec.TextWrapped = true; infoSec.Font = Enum.Font.Gotham; infoSec.TextSize = 12
 
 local btnScan = criarBotaoSimples("Iniciar Verificação do Mapa", pageSec, Color3.fromRGB(80, 80, 80))
-local resultadoSec = Instance.new("TextLabel", pageSec)
-resultadoSec.Size = UDim2.new(0.9, 0, 0, 80); resultadoSec.BackgroundTransparency = 1
-resultadoSec.Text = "Status: Aguardando verificação..."
-resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 255); resultadoSec.TextWrapped = true; resultadoSec.Font = Enum.Font.GothamBold; resultadoSec.TextSize = 14
+local resultadoSec = Instance.new("TextLabel", pageSec); resultadoSec.Size = UDim2.new(0.9, 0, 0, 80); resultadoSec.BackgroundTransparency = 1; resultadoSec.Text = "Status: Aguardando verificação..."; resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 255); resultadoSec.TextWrapped = true; resultadoSec.Font = Enum.Font.GothamBold; resultadoSec.TextSize = 14
 
 btnScan.MouseButton1Click:Connect(function()
-    btnScan.Text = "Escaneando..."; resultadoSec.Text = "Procurando scripts suspeitos..."; resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 0)
-    task.wait(1.5)
+    btnScan.Text = "Escaneando..."; resultadoSec.Text = "Procurando scripts suspeitos..."; resultadoSec.TextColor3 = Color3.fromRGB(255, 255, 0); task.wait(1.5)
     local suspeito = false
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("LocalScript") then
-            local nome = string.lower(v.Name)
-            if string.find(nome, "anti") or string.find(nome, "cheat") or string.find(nome, "ban") or string.find(nome, "kick") then suspeito = true; break end
-        end
-    end
+    for _, v in pairs(game:GetDescendants()) do if v:IsA("LocalScript") then local nome = string.lower(v.Name); if string.find(nome, "anti") or string.find(nome, "cheat") or string.find(nome, "ban") or string.find(nome, "kick") then suspeito = true; break end end end
     btnScan.Text = "Refazer Verificação"
-    if suspeito then
-        resultadoSec.Text = "⚠️ ALERTA: Arquivos de Anti-Cheat detectados no cliente! Risco Alto."
-        resultadoSec.TextColor3 = Color3.fromRGB(255, 50, 50)
-    else
-        resultadoSec.Text = "✅ Aparentemente Seguro: Nenhum sistema básico de Anti-Cheat local foi encontrado."
-        resultadoSec.TextColor3 = Color3.fromRGB(50, 255, 50)
-    end
+    if suspeito then resultadoSec.Text = "⚠️ ALERTA: Arquivos de Anti-Cheat detectados no cliente! Risco Alto."; resultadoSec.TextColor3 = Color3.fromRGB(255, 50, 50)
+    else resultadoSec.Text = "✅ Aparentemente Seguro: Nenhum sistema básico de Anti-Cheat local foi encontrado."; resultadoSec.TextColor3 = Color3.fromRGB(50, 255, 50) end
 end)
 
 -- ==========================================
 -- LÓGICA GERAL DA JANELA (MINIMIZAR/FECHAR)
 -- ==========================================
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
-
-minBtn.MouseButton1Click:Connect(function()
-    minimizado = not minimizado
-    if minimizado then
-        mainFrame:TweenSize(UDim2.new(0, 420, 0, 35), "Out", "Quad", 0.3, true)
-        tabBar.Visible = false; pageContainer.Visible = false
-    else
-        mainFrame:TweenSize(UDim2.new(0, 420, 0, 380), "Out", "Quad", 0.3, true)
-        tabBar.Visible = true; pageContainer.Visible = true
-    end
-end)
+minBtn.MouseButton1Click:Connect(function() minimizado = not minimizado; if minimizado then mainFrame:TweenSize(UDim2.new(0, 420, 0, 35), "Out", "Quad", 0.3, true); tabBar.Visible = false; pageContainer.Visible = false else mainFrame:TweenSize(UDim2.new(0, 420, 0, 380), "Out", "Quad", 0.3, true); tabBar.Visible = true; pageContainer.Visible = true end end)
