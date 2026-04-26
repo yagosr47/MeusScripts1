@@ -1,5 +1,5 @@
 -- ==========================================
--- Hub Universal V12 - DEFINITIVO (C/ VERIFICAÇÃO DE TIME)
+-- Hub Universal V14 - CLONADOR DE SKIN ADICIONADO
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -19,7 +19,7 @@ local invisivel = false
 local modoDeus = false
 local noclipAtivado = false
 local aimbotAtivado = false
-local aimbotModoMouse = true -- true = Mouse, false = Personagem
+local aimbotModoMouse = true 
 local puloInfinitoAtivado = false
 local hitboxAtivada = false
 local fullbrightAtivado = false
@@ -27,18 +27,23 @@ local clickTpAtivado = false
 local semDanoQuedaAtivado = false
 local indexSpec = 1
 
+-- Variáveis para guardar status e reaplicar no Respawn
+local velocidadeAtual = 16
+local puloAtual = 50
+
 local godModeConnection = nil
 local noclipConnection = nil
 local aimbotConnection = nil
 local hitboxConnection = nil
 local noFallConnection = nil
+local espConnection = nil
 local corTema = Color3.fromRGB(0, 170, 255) 
 
 -- ==========================================
--- 1. CRIAÇÃO DA INTERFACE BASE (COMPACTA)
+-- 1. CRIAÇÃO DA INTERFACE BASE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HubPremiumV12"
+screenGui.Name = "HubPremiumV14"
 screenGui.ResetOnSpawn = false
 local success, _ = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = player:WaitForChild("PlayerGui") end
@@ -58,7 +63,6 @@ local mainStroke = Instance.new("UIStroke", mainFrame)
 mainStroke.Thickness = 2
 mainStroke.Color = corTema
 
--- Barra de Título
 local titleBar = Instance.new("Frame", mainFrame)
 titleBar.Size = UDim2.new(1, 0, 0, 35)
 titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -66,16 +70,11 @@ titleBar.BorderSizePixel = 0
 Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
 
 local titleText = Instance.new("TextLabel", titleBar)
-titleText.Size = UDim2.new(0.6, 0, 1, 0)
-titleText.Position = UDim2.new(0.05, 0, 0, 0)
-titleText.BackgroundTransparency = 1
-titleText.Text = "HUB UNIVERSAL V12"
-titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 14
-titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Size = UDim2.new(0.6, 0, 1, 0); titleText.Position = UDim2.new(0.05, 0, 0, 0)
+titleText.BackgroundTransparency = 1; titleText.Text = "HUB UNIVERSAL V14"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255); titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 14; titleText.TextXAlignment = Enum.TextXAlignment.Left
 
--- Botoes Janela (Fechar e Minimizar)
 local closeBtn = Instance.new("TextButton", titleBar)
 closeBtn.Size = UDim2.new(0, 30, 0, 30); closeBtn.Position = UDim2.new(0.9, 0, 0.1, 0)
 closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50); closeBtn.Text = "X"
@@ -105,10 +104,8 @@ local function criarAba(nome, ordem)
     return btn
 end
 
-local tabScripts = criarAba("Scripts", 1)
-local tabInv = criarAba("Inventário", 2)
-local tabConfig = criarAba("Interface", 3)
-local tabSec = criarAba("Segurança", 4)
+local tabScripts = criarAba("Scripts", 1); local tabInv = criarAba("Inventário", 2)
+local tabConfig = criarAba("Interface", 3); local tabSec = criarAba("Segurança", 4)
 
 local pageContainer = Instance.new("Frame", mainFrame)
 pageContainer.Size = UDim2.new(1, 0, 1, -70); pageContainer.Position = UDim2.new(0, 0, 0, 70)
@@ -116,28 +113,20 @@ pageContainer.BackgroundTransparency = 1
 
 local function criarPagina()
     local page = Instance.new("ScrollingFrame", pageContainer)
-    page.Size = UDim2.new(1, 0, 1, 0)
-    page.BackgroundTransparency = 1
-    page.ScrollBarThickness = 4
-    page.Visible = false
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    
+    page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1
+    page.ScrollBarThickness = 4; page.Visible = false
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y; page.CanvasSize = UDim2.new(0, 0, 0, 0)
     local layout = Instance.new("UIListLayout", page)
     layout.Padding = UDim.new(0, 8); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     return page
 end
 
-local pageScripts = criarPagina()
-local pageInv = criarPagina()
-local pageConfig = criarPagina()
-local pageSec = criarPagina()
+local pageScripts = criarPagina(); local pageInv = criarPagina()
+local pageConfig = criarPagina(); local pageSec = criarPagina()
 pageScripts.Visible = true
 
 local function mudarAba(ativa, paginaAtiva)
-    for _, btn in pairs(tabBar:GetChildren()) do
-        if btn:IsA("TextButton") then btn.TextColor3 = Color3.fromRGB(200, 200, 200) end
-    end
+    for _, btn in pairs(tabBar:GetChildren()) do if btn:IsA("TextButton") then btn.TextColor3 = Color3.fromRGB(200, 200, 200) end end
     ativa.TextColor3 = corTema
     pageScripts.Visible = false; pageInv.Visible = false; pageConfig.Visible = false; pageSec.Visible = false
     paginaAtiva.Visible = true
@@ -154,8 +143,7 @@ tabScripts.TextColor3 = corTema
 -- ==========================================
 local function criarBotaoSimples(texto, parent, cor)
     local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 35)
-    btn.BackgroundColor3 = cor or Color3.fromRGB(40, 40, 40)
+    btn.Size = UDim2.new(0.9, 0, 0, 35); btn.BackgroundColor3 = cor or Color3.fromRGB(40, 40, 40)
     btn.Text = texto; btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamSemibold; btn.TextSize = 13
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
@@ -178,11 +166,15 @@ local function criarLinhaEscala(texto, baseValue, parent, isJump)
     
     btn.MouseButton1Click:Connect(function()
         local char = player.Character
-        if char and char:FindFirstChild("Humanoid") then
-            local valor = tonumber(input.Text) or 1
-            valor = math.clamp(valor, 1, 10); input.Text = tostring(valor)
-            if isJump then char.Humanoid.UseJumpPower = true; char.Humanoid.JumpPower = baseValue * valor
-            else char.Humanoid.WalkSpeed = baseValue * valor end
+        local valor = tonumber(input.Text) or 1
+        valor = math.clamp(valor, 1, 10); input.Text = tostring(valor)
+        
+        if isJump then 
+            puloAtual = baseValue * valor
+            if char and char:FindFirstChild("Humanoid") then char.Humanoid.UseJumpPower = true; char.Humanoid.JumpPower = puloAtual end
+        else 
+            velocidadeAtual = baseValue * valor
+            if char and char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = velocidadeAtual end
         end
     end)
     return input
@@ -196,15 +188,34 @@ local function criarDivisoria(texto, parent)
 end
 
 -- ==========================================
--- PÁGINA 1: SCRIPTS GERAIS E APELÕES
+-- AUTO-REAPLICAR NO RESPAWN
+-- ==========================================
+player.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid", 3)
+    if hum then
+        if velocidadeAtual ~= 16 then hum.WalkSpeed = velocidadeAtual end
+        if puloAtual ~= 50 then hum.UseJumpPower = true; hum.JumpPower = puloAtual end
+    end
+    
+    if invisivel then
+        task.wait(0.5) 
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then part.Transparency = 1
+            elseif part:IsA("Decal") then part.Transparency = 1 end
+        end
+    end
+end)
+
+-- ==========================================
+-- PÁGINA 1: SCRIPTS GERAIS
 -- ==========================================
 Instance.new("Frame", pageScripts).Size = UDim2.new(1,0,0,1)
 
 criarDivisoria("Combate e Aimbot", pageScripts)
-local btnAimbot = criarBotaoSimples("Ativar Aimbot", pageScripts, Color3.fromRGB(200, 50, 50))
+local btnAimbot = criarBotaoSimples("Ativar Aimbot (Atira com SHIFT)", pageScripts, Color3.fromRGB(200, 50, 50))
 local btnAimbotMode = criarBotaoSimples("Modo Aimbot: Mais Próximo do Mouse", pageScripts, Color3.fromRGB(150, 50, 100))
 local btnHitbox = criarBotaoSimples("Expandir Hitbox (Acerto Fácil)", pageScripts, Color3.fromRGB(200, 100, 50))
-local btnEsp = criarBotaoSimples("Ativar ESP (Ver Nomes na Parede)", pageScripts)
+local btnEsp = criarBotaoSimples("Ativar ESP (Com Distância)", pageScripts)
 
 criarDivisoria("Movimentação Extrema", pageScripts)
 local btnNoFall = criarBotaoSimples("Ignorar Dano de Queda", pageScripts, Color3.fromRGB(50, 150, 200))
@@ -217,13 +228,61 @@ local inputPulo = criarLinhaEscala("Aplicar Pulo (1-10)", 50, pageScripts, true)
 criarDivisoria("Utilidades do Jogador", pageScripts)
 local btnFullbright = criarBotaoSimples("Visão Noturna (Claridade Máxima)", pageScripts, Color3.fromRGB(200, 200, 50))
 local btnGodMode = criarBotaoSimples("Ativar Modo Deus (Client-Side)", pageScripts, Color3.fromRGB(150, 100, 0))
-local btnInvis = criarBotaoSimples("Ativar Invisibilidade (Client-Side)", pageScripts)
+local btnInvis = criarBotaoSimples("Ativar Invisibilidade (Auto-Respawn)", pageScripts)
 local btnSpec = criarBotaoSimples("Espionar Próximo Jogador", pageScripts)
+local btnCloneSkin = criarBotaoSimples("Clonar Skin (Do Alvo Espiado)", pageScripts, Color3.fromRGB(180, 50, 150)) -- NOVO BOTÃO
 local btnUnspec = criarBotaoSimples("Parar Espionagem", pageScripts, Color3.fromRGB(100, 50, 50))
 
 -- >>> LÓGICAS DA PÁGINA 1 <<<
 
--- Aimbot (Com Sistema de Alvo Inteligente e Ignorar Aliados)
+-- Clonador de Skin (Client-Side)
+btnCloneSkin.MouseButton1Click:Connect(function()
+    local todos = Players:GetPlayers()
+    local alvo = todos[indexSpec] -- Pega o jogador que você está espiando atualmente
+    
+    if alvo and alvo ~= player and alvo.Character and player.Character then
+        local meuChar = player.Character
+        local alvoChar = alvo.Character
+        
+        -- 1. Limpa a sua roupa e acessórios atuais
+        for _, v in pairs(meuChar:GetChildren()) do
+            if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("CharacterMesh") or v:IsA("BodyColors") or v:IsA("ShirtGraphic") then
+                v:Destroy()
+            end
+        end
+        
+        -- 2. Clona as roupas e acessórios do alvo
+        for _, v in pairs(alvoChar:GetChildren()) do
+            if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("CharacterMesh") or v:IsA("BodyColors") or v:IsA("ShirtGraphic") then
+                v:Clone().Parent = meuChar
+            end
+        end
+        
+        -- 3. Clona o rosto (Face Decal)
+        local myHead = meuChar:FindFirstChild("Head")
+        local targetHead = alvoChar:FindFirstChild("Head")
+        if myHead and targetHead then
+            local myFace = myHead:FindFirstChildOfClass("Decal")
+            local targetFace = targetHead:FindFirstChildOfClass("Decal")
+            
+            if myFace and targetFace then
+                myFace.Texture = targetFace.Texture
+            elseif targetFace and not myFace then
+                targetFace:Clone().Parent = myHead
+            end
+        end
+        
+        btnCloneSkin.Text = "Skin Clonada: " .. alvo.Name
+        task.wait(2)
+        btnCloneSkin.Text = "Clonar Skin (Do Alvo Espiado)"
+    else
+        btnCloneSkin.Text = "Nenhum alvo espiado válido!"
+        task.wait(2)
+        btnCloneSkin.Text = "Clonar Skin (Do Alvo Espiado)"
+    end
+end)
+
+-- Aimbot 
 btnAimbotMode.MouseButton1Click:Connect(function()
     aimbotModoMouse = not aimbotModoMouse
     btnAimbotMode.Text = aimbotModoMouse and "Modo Aimbot: Mais Próximo do Mouse" or "Modo Aimbot: Mais Próximo do Personagem"
@@ -235,12 +294,8 @@ local function pegarInimigoMaisProximo()
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            
-            -- LÓGICA DE TIME (Não mira em aliados)
             local aliado = false
-            if player.Team ~= nil and p.Team ~= nil and player.Team == p.Team then
-                aliado = true
-            end
+            if player.Team ~= nil and p.Team ~= nil and player.Team == p.Team then aliado = true end
             
             if not aliado then
                 if aimbotModoMouse then
@@ -263,42 +318,77 @@ local function pegarInimigoMaisProximo()
 end
 
 btnAimbot.MouseButton1Click:Connect(function()
-    aimbotAtivado = not aimbotAtivado; btnAimbot.Text = aimbotAtivado and "Aimbot: TRAVADO" or "Ativar Aimbot"
+    aimbotAtivado = not aimbotAtivado; btnAimbot.Text = aimbotAtivado and "Aimbot: PRONTO (Segure SHIFT)" or "Ativar Aimbot (Atira com SHIFT)"
     if aimbotAtivado then 
         aimbotConnection = RunService.RenderStepped:Connect(function() 
-            local alvo = pegarInimigoMaisProximo()
-            if alvo then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, alvo.Position) end 
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift) then
+                local alvo = pegarInimigoMaisProximo()
+                if alvo then workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, alvo.Position) end 
+            end
         end)
     else 
         if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end 
     end
 end)
 
--- Ignorar Dano de Queda
+-- ESP com Distância Dinâmica
+btnEsp.MouseButton1Click:Connect(function()
+    espAtivado = not espAtivado
+    btnEsp.Text = espAtivado and "ESP: ATIVADO" or "Ativar ESP (Com Distância)"
+    
+    if espAtivado then
+        espConnection = RunService.RenderStepped:Connect(function()
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                    local head = p.Character.Head
+                    local tag = head:FindFirstChild("ESPTag")
+                    
+                    if not tag then
+                        local bgui = Instance.new("BillboardGui", head)
+                        bgui.Name = "ESPTag"; bgui.Size = UDim2.new(0, 200, 0, 50); bgui.AlwaysOnTop = true
+                        local txt = Instance.new("TextLabel", bgui)
+                        txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1
+                        txt.TextColor3 = Color3.fromRGB(0, 255, 150); txt.TextStrokeTransparency = 0; txt.TextSize = 14; txt.Font = Enum.Font.GothamBold
+                        tag = bgui
+                    end
+                    
+                    local dist = 0
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        dist = math.floor((player.Character.HumanoidRootPart.Position - head.Position).Magnitude)
+                    end
+                    tag.TextLabel.Text = p.Name .. " (" .. tostring(dist) .. "m)"
+                end
+            end
+        end)
+    else
+        if espConnection then espConnection:Disconnect(); espConnection = nil end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("Head") then
+                local tag = p.Character.Head:FindFirstChild("ESPTag"); if tag then tag:Destroy() end
+            end
+        end
+    end
+end)
+
+-- Outras Funções
 btnNoFall.MouseButton1Click:Connect(function()
-    semDanoQuedaAtivado = not semDanoQuedaAtivado
-    btnNoFall.Text = semDanoQuedaAtivado and "Ignorar Dano de Queda: ATIVADO" or "Ignorar Dano de Queda"
+    semDanoQuedaAtivado = not semDanoQuedaAtivado; btnNoFall.Text = semDanoQuedaAtivado and "Ignorar Dano de Queda: ATIVADO" or "Ignorar Dano de Queda"
     if semDanoQuedaAtivado then
         noFallConnection = RunService.Stepped:Connect(function()
             local char = player.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local hrp = char.HumanoidRootPart
-                if hrp.AssemblyLinearVelocity.Y < -40 then hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -40, hrp.AssemblyLinearVelocity.Z) end
+                if char.HumanoidRootPart.AssemblyLinearVelocity.Y < -40 then char.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(char.HumanoidRootPart.AssemblyLinearVelocity.X, -40, char.HumanoidRootPart.AssemblyLinearVelocity.Z) end
             end
         end)
-    else
-        if noFallConnection then noFallConnection:Disconnect(); noFallConnection = nil end
-    end
+    else if noFallConnection then noFallConnection:Disconnect(); noFallConnection = nil end end
 end)
 
--- Hitbox Expandida
 btnHitbox.MouseButton1Click:Connect(function()
     hitboxAtivada = not hitboxAtivada; btnHitbox.Text = hitboxAtivada and "Hitbox Expandida: ATIVADA" or "Expandir Hitbox (Acerto Fácil)"
     if hitboxAtivada then
         hitboxConnection = RunService.RenderStepped:Connect(function()
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    -- Verificação de Time para Hitbox também!
                     if player.Team ~= nil and p.Team ~= nil and player.Team == p.Team then continue end
                     local hrp = p.Character.HumanoidRootPart; hrp.Size = Vector3.new(15, 15, 15); hrp.Transparency = 0.5
                     hrp.BrickColor = BrickColor.new("Bright blue"); hrp.Material = Enum.Material.Neon; hrp.CanCollide = false
@@ -315,64 +405,40 @@ btnHitbox.MouseButton1Click:Connect(function()
     end
 end)
 
--- Visão Noturna
 btnFullbright.MouseButton1Click:Connect(function()
     fullbrightAtivado = not fullbrightAtivado; btnFullbright.Text = fullbrightAtivado and "Visão Noturna: ATIVADA" or "Visão Noturna (Claridade Máxima)"
     if fullbrightAtivado then Lighting.Brightness = 2; Lighting.ClockTime = 14; Lighting.FogEnd = 100000; Lighting.GlobalShadows = false; Lighting.Ambient = Color3.fromRGB(255, 255, 255)
     else Lighting.Brightness = 1; Lighting.FogEnd = 10000; Lighting.GlobalShadows = true end
 end)
 
--- Click TP
 btnClickTp.MouseButton1Click:Connect(function()
     clickTpAtivado = not clickTpAtivado; btnClickTp.Text = clickTpAtivado and "Click TP: ATIVADO (Use CTRL+Click)" or "Teleporte por Clique (CTRL + Click)"
 end)
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and clickTpAtivado and input.UserInputType == Enum.UserInputType.MouseButton1 then
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and mouse.Hit then
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0))
-            end
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and mouse.Hit then player.Character.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0)) end
         end
     end
 end)
 
--- Pulo Infinito
 btnPuloInf.MouseButton1Click:Connect(function() puloInfinitoAtivado = not puloInfinitoAtivado; btnPuloInf.Text = puloInfinitoAtivado and "Pulo Infinito: ATIVADO" or "Ativar Pulo Infinito no Ar" end)
 UserInputService.JumpRequest:Connect(function() if puloInfinitoAtivado and player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
 
--- Noclip
 btnNoclip.MouseButton1Click:Connect(function()
     noclipAtivado = not noclipAtivado; btnNoclip.Text = noclipAtivado and "Atravessar Parede: ATIVADO" or "Atravessar Parede (Noclip)"
     if noclipAtivado then noclipConnection = RunService.Stepped:Connect(function() if player.Character then for _, part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end end)
     else if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end end
 end)
 
--- Modo Deus
 btnGodMode.MouseButton1Click:Connect(function()
     modoDeus = not modoDeus; btnGodMode.Text = modoDeus and "Modo Deus: ATIVADO" or "Ativar Modo Deus (Client-Side)"
     if modoDeus then godModeConnection = RunService.RenderStepped:Connect(function() if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.MaxHealth = math.huge; player.Character.Humanoid.Health = math.huge end end)
     else if godModeConnection then godModeConnection:Disconnect() end end
 end)
 
--- ESP
-btnEsp.MouseButton1Click:Connect(function()
-    espAtivado = not espAtivado; btnEsp.Text = espAtivado and "ESP: ATIVADO" or "Ativar ESP (Ver Nomes na Parede)"
-    if espAtivado then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
-                local bgui = Instance.new("BillboardGui", p.Character.Head); bgui.Name = "ESPTag"; bgui.Size = UDim2.new(0, 200, 0, 50); bgui.AlwaysOnTop = true
-                local txt = Instance.new("TextLabel", bgui); txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Text = p.Name
-                txt.TextColor3 = Color3.fromRGB(255, 255, 255); txt.TextStrokeTransparency = 0; txt.TextSize = 14; txt.Font = Enum.Font.GothamBold
-            end
-        end
-    else
-        for _, p in pairs(Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("Head") then local tag = p.Character.Head:FindFirstChild("ESPTag"); if tag then tag:Destroy() end end end
-    end
-end)
-
--- Invisibilidade
 btnInvis.MouseButton1Click:Connect(function()
-    invisivel = not invisivel; btnInvis.Text = invisivel and "Invisibilidade: ATIVADA" or "Ativar Invisibilidade (Client-Side)"
+    invisivel = not invisivel; btnInvis.Text = invisivel and "Invisibilidade: ATIVADA" or "Ativar Invisibilidade (Auto-Respawn)"
     if player.Character then
         for _, part in pairs(player.Character:GetDescendants()) do
             if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then part.Transparency = invisivel and 1 or 0
@@ -381,7 +447,6 @@ btnInvis.MouseButton1Click:Connect(function()
     end
 end)
 
--- Espionagem
 btnSpec.MouseButton1Click:Connect(function()
     local todos = Players:GetPlayers(); indexSpec = indexSpec + 1; if indexSpec > #todos then indexSpec = 1 end
     local alvo = todos[indexSpec]
@@ -400,15 +465,11 @@ Instance.new("Frame", pageInv).Size = UDim2.new(1,0,0,1)
 local infoInv = Instance.new("TextLabel", pageInv)
 infoInv.Size = UDim2.new(0.9, 0, 0, 45); infoInv.BackgroundTransparency = 1
 infoInv.Text = "A maioria das edições de Itens aqui afetarão apenas a sua tela (Client-Side)."
-infoInv.TextColor3 = Color3.fromRGB(255, 100, 100); infoInv.TextWrapped = true
-infoInv.Font = Enum.Font.GothamBold; infoInv.TextSize = 12
+infoInv.TextColor3 = Color3.fromRGB(255, 100, 100); infoInv.TextWrapped = true; infoInv.Font = Enum.Font.GothamBold; infoInv.TextSize = 12
 
 local btnAtualizarInv = criarBotaoSimples("Atualizar Lista de Itens", pageInv, Color3.fromRGB(50, 100, 50))
-
 local listaItensFrame = Instance.new("Frame", pageInv)
-listaItensFrame.Size = UDim2.new(0.9, 0, 0, 0)
-listaItensFrame.AutomaticSize = Enum.AutomaticSize.Y
-listaItensFrame.BackgroundTransparency = 1
+listaItensFrame.Size = UDim2.new(0.9, 0, 0, 0); listaItensFrame.AutomaticSize = Enum.AutomaticSize.Y; listaItensFrame.BackgroundTransparency = 1
 local listaItensLayout = Instance.new("UIListLayout", listaItensFrame)
 listaItensLayout.Padding = UDim.new(0, 5)
 
@@ -416,12 +477,8 @@ btnAtualizarInv.MouseButton1Click:Connect(function()
     for _, child in pairs(listaItensFrame:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
     
     local itensEncontrados = {}
-    if player:FindFirstChild("Backpack") then
-        for _, item in pairs(player.Backpack:GetChildren()) do if item:IsA("Tool") or item:IsA("HopperBin") then table.insert(itensEncontrados, item) end end
-    end
-    if player.Character then
-        for _, item in pairs(player.Character:GetChildren()) do if item:IsA("Tool") or item:IsA("HopperBin") then table.insert(itensEncontrados, item) end end
-    end
+    if player:FindFirstChild("Backpack") then for _, item in pairs(player.Backpack:GetChildren()) do if item:IsA("Tool") or item:IsA("HopperBin") then table.insert(itensEncontrados, item) end end end
+    if player.Character then for _, item in pairs(player.Character:GetChildren()) do if item:IsA("Tool") or item:IsA("HopperBin") then table.insert(itensEncontrados, item) end end end
     
     if #itensEncontrados == 0 then
         local txt = Instance.new("TextLabel", listaItensFrame)
@@ -432,25 +489,20 @@ btnAtualizarInv.MouseButton1Click:Connect(function()
     
     for _, item in ipairs(itensEncontrados) do
         local frameItem = Instance.new("Frame", listaItensFrame)
-        frameItem.Size = UDim2.new(1, 0, 0, 40); frameItem.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        Instance.new("UICorner", frameItem).CornerRadius = UDim.new(0, 8)
+        frameItem.Size = UDim2.new(1, 0, 0, 40); frameItem.BackgroundColor3 = Color3.fromRGB(35, 35, 35); Instance.new("UICorner", frameItem).CornerRadius = UDim.new(0, 8)
         
         local nomeItem = Instance.new("TextLabel", frameItem)
         nomeItem.Size = UDim2.new(0.6, 0, 1, 0); nomeItem.Position = UDim2.new(0.05, 0, 0, 0); nomeItem.BackgroundTransparency = 1
-        nomeItem.Text = item.Name; nomeItem.TextColor3 = Color3.fromRGB(255, 255, 255); nomeItem.TextXAlignment = Enum.TextXAlignment.Left
-        nomeItem.Font = Enum.Font.GothamSemibold; nomeItem.TextSize = 13
+        nomeItem.Text = item.Name; nomeItem.TextColor3 = Color3.fromRGB(255, 255, 255); nomeItem.TextXAlignment = Enum.TextXAlignment.Left; nomeItem.Font = Enum.Font.GothamSemibold; nomeItem.TextSize = 13
         
         local btnHackItem = Instance.new("TextButton", frameItem)
         btnHackItem.Size = UDim2.new(0.3, 0, 0.8, 0); btnHackItem.Position = UDim2.new(0.65, 0, 0.1, 0)
-        btnHackItem.BackgroundColor3 = corTema; btnHackItem.Text = "Editar Local"
-        btnHackItem.TextColor3 = Color3.fromRGB(0, 0, 0); btnHackItem.Font = Enum.Font.GothamBold; btnHackItem.TextSize = 12
+        btnHackItem.BackgroundColor3 = corTema; btnHackItem.Text = "Editar Local"; btnHackItem.TextColor3 = Color3.fromRGB(0, 0, 0); btnHackItem.Font = Enum.Font.GothamBold; btnHackItem.TextSize = 12
         Instance.new("UICorner", btnHackItem).CornerRadius = UDim.new(0, 6)
         
         btnHackItem.MouseButton1Click:Connect(function()
             local editouAlgo = false
-            for _, prop in pairs(item:GetDescendants()) do
-                if prop:IsA("NumberValue") or prop:IsA("IntValue") then prop.Value = 99999; editouAlgo = true end
-            end
+            for _, prop in pairs(item:GetDescendants()) do if prop:IsA("NumberValue") or prop:IsA("IntValue") then prop.Value = 99999; editouAlgo = true end end
             if editouAlgo then btnHackItem.Text = "Modificado!"; btnHackItem.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
             else btnHackItem.Text = "Sem Valores"; btnHackItem.BackgroundColor3 = Color3.fromRGB(150, 50, 50) end
         end)
@@ -464,8 +516,7 @@ Instance.new("Frame", pageConfig).Size = UDim2.new(1,0,0,1)
 
 local function criarTituloSecao(texto, parent)
     local txt = Instance.new("TextLabel", parent)
-    txt.Size = UDim2.new(0.9, 0, 0, 25); txt.BackgroundTransparency = 1
-    txt.Text = texto; txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.Size = UDim2.new(0.9, 0, 0, 25); txt.BackgroundTransparency = 1; txt.Text = texto; txt.TextColor3 = Color3.fromRGB(255, 255, 255)
     txt.Font = Enum.Font.GothamBold; txt.TextSize = 13; txt.TextXAlignment = Enum.TextXAlignment.Left
 end
 
@@ -481,11 +532,7 @@ for _, dados in ipairs(cores) do
         corTema = dados[2]; mainStroke.Color = corTema
         for _, obj in pairs(pageScripts:GetDescendants()) do if obj:IsA("TextBox") then obj.TextColor3 = corTema end end
         for _, obj in pairs(pageScripts:GetDescendants()) do if obj:IsA("TextLabel") and obj.Text:match("^%-%-%-") then obj.TextColor3 = corTema end end
-        for _, btn in pairs(tabBar:GetChildren()) do
-            if btn:IsA("TextButton") and btn.Visible then
-                if btn.TextColor3 ~= Color3.fromRGB(200,200,200) then btn.TextColor3 = corTema end
-            end
-        end
+        for _, btn in pairs(tabBar:GetChildren()) do if btn:IsA("TextButton") and btn.Visible then if btn.TextColor3 ~= Color3.fromRGB(200,200,200) then btn.TextColor3 = corTema end end end
     end)
 end
 
