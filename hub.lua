@@ -1,5 +1,5 @@
 -- ==========================================
--- Hub Universal V11 - INVENTÁRIO FIXO, AIMBOT DUPLO E NO FALL
+-- Hub Universal V12 - DEFINITIVO (C/ VERIFICAÇÃO DE TIME)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -35,10 +35,10 @@ local noFallConnection = nil
 local corTema = Color3.fromRGB(0, 170, 255) 
 
 -- ==========================================
--- 1. CRIAÇÃO DA INTERFACE BASE (TELA COMPACTA)
+-- 1. CRIAÇÃO DA INTERFACE BASE (COMPACTA)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HubPremiumV11"
+screenGui.Name = "HubPremiumV12"
 screenGui.ResetOnSpawn = false
 local success, _ = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = player:WaitForChild("PlayerGui") end
@@ -69,13 +69,13 @@ local titleText = Instance.new("TextLabel", titleBar)
 titleText.Size = UDim2.new(0.6, 0, 1, 0)
 titleText.Position = UDim2.new(0.05, 0, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = "HUB UNIVERSAL V11"
+titleText.Text = "HUB UNIVERSAL V12"
 titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleText.Font = Enum.Font.GothamBold
 titleText.TextSize = 14
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 
--- Botoes Janela
+-- Botoes Janela (Fechar e Minimizar)
 local closeBtn = Instance.new("TextButton", titleBar)
 closeBtn.Size = UDim2.new(0, 30, 0, 30); closeBtn.Position = UDim2.new(0.9, 0, 0.1, 0)
 closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50); closeBtn.Text = "X"
@@ -223,7 +223,7 @@ local btnUnspec = criarBotaoSimples("Parar Espionagem", pageScripts, Color3.from
 
 -- >>> LÓGICAS DA PÁGINA 1 <<<
 
--- Aimbot (Com Sistema de Alvo Inteligente)
+-- Aimbot (Com Sistema de Alvo Inteligente e Ignorar Aliados)
 btnAimbotMode.MouseButton1Click:Connect(function()
     aimbotModoMouse = not aimbotModoMouse
     btnAimbotMode.Text = aimbotModoMouse and "Modo Aimbot: Mais Próximo do Mouse" or "Modo Aimbot: Mais Próximo do Personagem"
@@ -236,23 +236,27 @@ local function pegarInimigoMaisProximo()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
             
-            -- Lógica 1: Mais próximo da mira do mouse
-            if aimbotModoMouse then
-                local posTela, naTela = camera:WorldToViewportPoint(p.Character.Head.Position)
-                if naTela then
-                    local centroTela = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                    local distancia = (Vector2.new(posTela.X, posTela.Y) - centroTela).Magnitude
-                    if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
-                end
+            -- LÓGICA DE TIME (Não mira em aliados)
+            local aliado = false
+            if player.Team ~= nil and p.Team ~= nil and player.Team == p.Team then
+                aliado = true
+            end
             
-            -- Lógica 2: Fisicamente mais próximo do seu personagem
-            else
-                if meuHrp and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local distancia = (p.Character.HumanoidRootPart.Position - meuHrp.Position).Magnitude
-                    if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
+            if not aliado then
+                if aimbotModoMouse then
+                    local posTela, naTela = camera:WorldToViewportPoint(p.Character.Head.Position)
+                    if naTela then
+                        local centroTela = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+                        local distancia = (Vector2.new(posTela.X, posTela.Y) - centroTela).Magnitude
+                        if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
+                    end
+                else
+                    if meuHrp and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local distancia = (p.Character.HumanoidRootPart.Position - meuHrp.Position).Magnitude
+                        if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
+                    end
                 end
             end
-
         end
     end
     return alvoMaisProximo
@@ -274,16 +278,12 @@ end)
 btnNoFall.MouseButton1Click:Connect(function()
     semDanoQuedaAtivado = not semDanoQuedaAtivado
     btnNoFall.Text = semDanoQuedaAtivado and "Ignorar Dano de Queda: ATIVADO" or "Ignorar Dano de Queda"
-    
     if semDanoQuedaAtivado then
         noFallConnection = RunService.Stepped:Connect(function()
             local char = player.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local hrp = char.HumanoidRootPart
-                -- Se a velocidade de queda for muito alta, ele corta a velocidade para um nível seguro (-40)
-                if hrp.AssemblyLinearVelocity.Y < -40 then
-                    hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -40, hrp.AssemblyLinearVelocity.Z)
-                end
+                if hrp.AssemblyLinearVelocity.Y < -40 then hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -40, hrp.AssemblyLinearVelocity.Z) end
             end
         end)
     else
@@ -291,13 +291,15 @@ btnNoFall.MouseButton1Click:Connect(function()
     end
 end)
 
--- Outras Funções (Hitbox, Fullbright, TP, Noclip, GodMode, etc)
+-- Hitbox Expandida
 btnHitbox.MouseButton1Click:Connect(function()
     hitboxAtivada = not hitboxAtivada; btnHitbox.Text = hitboxAtivada and "Hitbox Expandida: ATIVADA" or "Expandir Hitbox (Acerto Fácil)"
     if hitboxAtivada then
         hitboxConnection = RunService.RenderStepped:Connect(function()
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    -- Verificação de Time para Hitbox também!
+                    if player.Team ~= nil and p.Team ~= nil and player.Team == p.Team then continue end
                     local hrp = p.Character.HumanoidRootPart; hrp.Size = Vector3.new(15, 15, 15); hrp.Transparency = 0.5
                     hrp.BrickColor = BrickColor.new("Bright blue"); hrp.Material = Enum.Material.Neon; hrp.CanCollide = false
                 end
@@ -313,12 +315,14 @@ btnHitbox.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Visão Noturna
 btnFullbright.MouseButton1Click:Connect(function()
     fullbrightAtivado = not fullbrightAtivado; btnFullbright.Text = fullbrightAtivado and "Visão Noturna: ATIVADA" or "Visão Noturna (Claridade Máxima)"
     if fullbrightAtivado then Lighting.Brightness = 2; Lighting.ClockTime = 14; Lighting.FogEnd = 100000; Lighting.GlobalShadows = false; Lighting.Ambient = Color3.fromRGB(255, 255, 255)
     else Lighting.Brightness = 1; Lighting.FogEnd = 10000; Lighting.GlobalShadows = true end
 end)
 
+-- Click TP
 btnClickTp.MouseButton1Click:Connect(function()
     clickTpAtivado = not clickTpAtivado; btnClickTp.Text = clickTpAtivado and "Click TP: ATIVADO (Use CTRL+Click)" or "Teleporte por Clique (CTRL + Click)"
 end)
@@ -332,21 +336,25 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
+-- Pulo Infinito
 btnPuloInf.MouseButton1Click:Connect(function() puloInfinitoAtivado = not puloInfinitoAtivado; btnPuloInf.Text = puloInfinitoAtivado and "Pulo Infinito: ATIVADO" or "Ativar Pulo Infinito no Ar" end)
 UserInputService.JumpRequest:Connect(function() if puloInfinitoAtivado and player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end)
 
+-- Noclip
 btnNoclip.MouseButton1Click:Connect(function()
     noclipAtivado = not noclipAtivado; btnNoclip.Text = noclipAtivado and "Atravessar Parede: ATIVADO" or "Atravessar Parede (Noclip)"
     if noclipAtivado then noclipConnection = RunService.Stepped:Connect(function() if player.Character then for _, part in pairs(player.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end end)
     else if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end end
 end)
 
+-- Modo Deus
 btnGodMode.MouseButton1Click:Connect(function()
     modoDeus = not modoDeus; btnGodMode.Text = modoDeus and "Modo Deus: ATIVADO" or "Ativar Modo Deus (Client-Side)"
     if modoDeus then godModeConnection = RunService.RenderStepped:Connect(function() if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.MaxHealth = math.huge; player.Character.Humanoid.Health = math.huge end end)
     else if godModeConnection then godModeConnection:Disconnect() end end
 end)
 
+-- ESP
 btnEsp.MouseButton1Click:Connect(function()
     espAtivado = not espAtivado; btnEsp.Text = espAtivado and "ESP: ATIVADO" or "Ativar ESP (Ver Nomes na Parede)"
     if espAtivado then
@@ -362,6 +370,7 @@ btnEsp.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Invisibilidade
 btnInvis.MouseButton1Click:Connect(function()
     invisivel = not invisivel; btnInvis.Text = invisivel and "Invisibilidade: ATIVADA" or "Ativar Invisibilidade (Client-Side)"
     if player.Character then
@@ -372,6 +381,7 @@ btnInvis.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Espionagem
 btnSpec.MouseButton1Click:Connect(function()
     local todos = Players:GetPlayers(); indexSpec = indexSpec + 1; if indexSpec > #todos then indexSpec = 1 end
     local alvo = todos[indexSpec]
@@ -383,7 +393,7 @@ btnUnspec.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- PÁGINA 2: INVENTÁRIO (CORRIGIDA E EXPANSÍVEL)
+-- PÁGINA 2: INVENTÁRIO (EXPANSÍVEL)
 -- ==========================================
 Instance.new("Frame", pageInv).Size = UDim2.new(1,0,0,1)
 
@@ -395,7 +405,6 @@ infoInv.Font = Enum.Font.GothamBold; infoInv.TextSize = 12
 
 local btnAtualizarInv = criarBotaoSimples("Atualizar Lista de Itens", pageInv, Color3.fromRGB(50, 100, 50))
 
--- A MÁGICA DO INVENTÁRIO: Agora ele cresce infinitamente junto com os itens!
 local listaItensFrame = Instance.new("Frame", pageInv)
 listaItensFrame.Size = UDim2.new(0.9, 0, 0, 0)
 listaItensFrame.AutomaticSize = Enum.AutomaticSize.Y
@@ -452,6 +461,13 @@ end)
 -- PÁGINA 3: CONFIGURAÇÕES DA INTERFACE
 -- ==========================================
 Instance.new("Frame", pageConfig).Size = UDim2.new(1,0,0,1)
+
+local function criarTituloSecao(texto, parent)
+    local txt = Instance.new("TextLabel", parent)
+    txt.Size = UDim2.new(0.9, 0, 0, 25); txt.BackgroundTransparency = 1
+    txt.Text = texto; txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.Font = Enum.Font.GothamBold; txt.TextSize = 13; txt.TextXAlignment = Enum.TextXAlignment.Left
+end
 
 criarTituloSecao("Cor Principal do Hub:", pageConfig)
 local cores = {
