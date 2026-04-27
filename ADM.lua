@@ -19,7 +19,6 @@ if not success then
     AdmGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Janela Principal (agora um pouco maior para acomodar as abas)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 450, 0, 250)
@@ -34,7 +33,6 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
--- Barra de Título
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 30)
 TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -73,7 +71,6 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 14
 CloseBtn.Parent = TitleBar
 
--- Menu de Abas (Tabs)
 local TabMenu = Instance.new("Frame")
 TabMenu.Size = UDim2.new(1, 0, 0, 35)
 TabMenu.Position = UDim2.new(0, 0, 0, 30)
@@ -104,7 +101,7 @@ TabComandos.BorderSizePixel = 0
 TabComandos.Parent = TabMenu
 
 -- =========================================================
--- ABA 1: EXECUTAR (Visível por padrão)
+-- ABA 1: EXECUTAR
 -- =========================================================
 local ExecutarFrame = Instance.new("Frame")
 ExecutarFrame.Size = UDim2.new(1, 0, 1, -65)
@@ -144,7 +141,7 @@ ExecCorner.CornerRadius = UDim.new(0, 6)
 ExecCorner.Parent = ExecuteBtn
 
 -- =========================================================
--- ABA 2: LISTA DE COMANDOS (Oculta por padrão)
+-- ABA 2: LISTA DE COMANDOS
 -- =========================================================
 local ComandosFrame = Instance.new("Frame")
 ComandosFrame.Size = UDim2.new(1, 0, 1, -65)
@@ -167,7 +164,6 @@ ListLayout.Padding = UDim.new(0, 5)
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ListLayout.Parent = ScrollComandos
 
--- Dados para a lista de comandos
 local ComandosInfo = {
     {cmd = "kill [alvo]", desc = "Elimina o jogador selecionado."},
     {cmd = "kick [alvo] [motivo]", desc = "Expulsa o jogador do servidor."},
@@ -178,10 +174,18 @@ local ComandosInfo = {
     {cmd = "heal [alvo]", desc = "Restaura a vida do jogador ao máximo."},
     {cmd = "tp [alvo1] [alvo2]", desc = "Teleporta o alvo1 até o alvo2."},
     {cmd = "bring [alvo]", desc = "Teleporta o jogador até a sua localização."},
-    {cmd = "goto [alvo]", desc = "Teleporta você até a localização do jogador."}
+    {cmd = "goto [alvo]", desc = "Teleporta você até a localização do jogador."},
+    {cmd = "freeze [alvo]", desc = "Congela o jogador no lugar."},
+    {cmd = "unfreeze [alvo]", desc = "Descongela o jogador."},
+    {cmd = "ff [alvo]", desc = "Dá um ForceField (Escudo) ao jogador."},
+    {cmd = "unff [alvo]", desc = "Remove o ForceField do jogador."},
+    {cmd = "sit [alvo]", desc = "Força o jogador a sentar."},
+    {cmd = "invis [alvo]", desc = "Deixa o jogador invisível."},
+    {cmd = "vis [alvo]", desc = "Deixa o jogador visível novamente."},
+    {cmd = "fire [alvo]", desc = "Coloca fogo no personagem do jogador."},
+    {cmd = "unfire [alvo]", desc = "Remove o fogo do personagem."}
 }
 
--- Gerar os itens da lista
 for i, info in ipairs(ComandosInfo) do
     local ItemFrame = Instance.new("Frame")
     ItemFrame.Size = UDim2.new(1, -10, 0, 40)
@@ -194,7 +198,7 @@ for i, info in ipairs(ComandosInfo) do
     ItemCorner.Parent = ItemFrame
 
     local CmdText = Instance.new("TextLabel")
-    CmdText.Size = UDim2.new(0.4, 0, 1, 0)
+    CmdText.Size = UDim2.new(0.45, 0, 1, 0)
     CmdText.Position = UDim2.new(0, 10, 0, 0)
     CmdText.BackgroundTransparency = 1
     CmdText.Text = info.cmd
@@ -205,8 +209,8 @@ for i, info in ipairs(ComandosInfo) do
     CmdText.Parent = ItemFrame
 
     local DescText = Instance.new("TextLabel")
-    DescText.Size = UDim2.new(0.6, -20, 1, 0)
-    DescText.Position = UDim2.new(0.4, 10, 0, 0)
+    DescText.Size = UDim2.new(0.55, -20, 1, 0)
+    DescText.Position = UDim2.new(0.45, 10, 0, 0)
     DescText.BackgroundTransparency = 1
     DescText.Text = info.desc
     DescText.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -217,19 +221,16 @@ for i, info in ipairs(ComandosInfo) do
     DescText.Parent = ItemFrame
 end
 
--- Ajustar o tamanho do scroll automaticamente
 ScrollComandos.CanvasSize = UDim2.new(0, 0, 0, #ComandosInfo * 45)
 
 -- =========================================================
 -- LÓGICA DAS ABAS E BOTÕES DA GUI
 -- =========================================================
 
--- Fechar
 CloseBtn.MouseButton1Click:Connect(function()
     AdmGui:Destroy()
 end)
 
--- Trocar para Aba Executar
 TabExecutar.MouseButton1Click:Connect(function()
     ExecutarFrame.Visible = true
     ComandosFrame.Visible = false
@@ -239,7 +240,6 @@ TabExecutar.MouseButton1Click:Connect(function()
     TabComandos.TextColor3 = Color3.fromRGB(150, 150, 150)
 end)
 
--- Trocar para Aba Comandos
 TabComandos.MouseButton1Click:Connect(function()
     ExecutarFrame.Visible = false
     ComandosFrame.Visible = true
@@ -288,6 +288,7 @@ end
 
 local Commands = {}
 
+-- Comandos Antigos
 Commands["kill"] = function(args)
     local targets = GetTargets(args[1])
     for _, target in ipairs(targets) do
@@ -392,6 +393,111 @@ Commands["goto"] = function(args)
         local destination = targets[1].Character
         if destination and destination:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             LocalPlayer.Character.HumanoidRootPart.CFrame = destination.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+        end
+    end
+end
+
+-- Novos Comandos Adicionados
+Commands["freeze"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            target.Character.HumanoidRootPart.Anchored = true
+        end
+    end
+end
+
+Commands["unfreeze"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            target.Character.HumanoidRootPart.Anchored = false
+        end
+    end
+end
+
+Commands["ff"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character and not target.Character:FindFirstChildOfClass("ForceField") then
+            Instance.new("ForceField", target.Character)
+        end
+    end
+end
+
+Commands["unff"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character then
+            for _, child in ipairs(target.Character:GetChildren()) do
+                if child:IsA("ForceField") then
+                    child:Destroy()
+                end
+            end
+        end
+    end
+end
+
+Commands["sit"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character and target.Character:FindFirstChild("Humanoid") then
+            target.Character.Humanoid.Sit = true
+        end
+    end
+end
+
+Commands["invis"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character then
+            for _, part in ipairs(target.Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.Transparency = 1
+                elseif part:IsA("Decal") then
+                    part.Transparency = 1
+                end
+            end
+        end
+    end
+end
+
+Commands["vis"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character then
+            for _, part in ipairs(target.Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.Transparency = 0
+                elseif part:IsA("Decal") then
+                    part.Transparency = 0
+                end
+            end
+        end
+    end
+end
+
+Commands["fire"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            if not target.Character.HumanoidRootPart:FindFirstChild("AdminFire") then
+                local fire = Instance.new("Fire")
+                fire.Name = "AdminFire"
+                fire.Parent = target.Character.HumanoidRootPart
+            end
+        end
+    end
+end
+
+Commands["unfire"] = function(args)
+    local targets = GetTargets(args[1])
+    for _, target in ipairs(targets) do
+        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local fire = target.Character.HumanoidRootPart:FindFirstChild("AdminFire")
+            if fire then
+                fire:Destroy()
+            end
         end
     end
 end
