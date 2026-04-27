@@ -1,5 +1,5 @@
 -- =========================================================
--- PAINEL ADM COM INTERFACE GRÁFICA (HUB)
+-- PAINEL ADM COM INTERFACE GRÁFICA (HUB) E LISTA DE COMANDOS
 -- =========================================================
 
 local Players = game:GetService("Players")
@@ -12,7 +12,6 @@ local LocalPlayer = Players.LocalPlayer
 local AdmGui = Instance.new("ScreenGui")
 AdmGui.Name = "YagoAdmHub"
 AdmGui.ResetOnSpawn = false
--- Tenta colocar no CoreGui (melhor para executores), se falhar, vai pro PlayerGui
 local success = pcall(function()
     AdmGui.Parent = game:GetService("CoreGui")
 end)
@@ -20,20 +19,22 @@ if not success then
     AdmGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
+-- Janela Principal (agora um pouco maior para acomodar as abas)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 400, 0, 150)
-MainFrame.Position = UDim2.new(0.5, -200, 0.5, -75)
+MainFrame.Size = UDim2.new(0, 450, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -125)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true -- Permite arrastar o painel pela tela
+MainFrame.Draggable = true
 MainFrame.Parent = AdmGui
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
+-- Barra de Título
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 30)
 TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -44,7 +45,6 @@ local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 10)
 TitleCorner.Parent = TitleBar
 
--- Remove o arredondamento inferior da barra de título
 local TitleFix = Instance.new("Frame")
 TitleFix.Size = UDim2.new(1, 0, 0, 10)
 TitleFix.Position = UDim2.new(0, 0, 1, -10)
@@ -73,39 +73,180 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 14
 CloseBtn.Parent = TitleBar
 
+-- Menu de Abas (Tabs)
+local TabMenu = Instance.new("Frame")
+TabMenu.Size = UDim2.new(1, 0, 0, 35)
+TabMenu.Position = UDim2.new(0, 0, 0, 30)
+TabMenu.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TabMenu.BorderSizePixel = 0
+TabMenu.Parent = MainFrame
+
+local TabExecutar = Instance.new("TextButton")
+TabExecutar.Size = UDim2.new(0.5, 0, 1, 0)
+TabExecutar.Position = UDim2.new(0, 0, 0, 0)
+TabExecutar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TabExecutar.TextColor3 = Color3.fromRGB(255, 255, 255)
+TabExecutar.Text = "Executar"
+TabExecutar.Font = Enum.Font.GothamSemibold
+TabExecutar.TextSize = 13
+TabExecutar.BorderSizePixel = 0
+TabExecutar.Parent = TabMenu
+
+local TabComandos = Instance.new("TextButton")
+TabComandos.Size = UDim2.new(0.5, 0, 1, 0)
+TabComandos.Position = UDim2.new(0.5, 0, 0, 0)
+TabComandos.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TabComandos.TextColor3 = Color3.fromRGB(150, 150, 150)
+TabComandos.Text = "Lista de Comandos"
+TabComandos.Font = Enum.Font.GothamSemibold
+TabComandos.TextSize = 13
+TabComandos.BorderSizePixel = 0
+TabComandos.Parent = TabMenu
+
+-- =========================================================
+-- ABA 1: EXECUTAR (Visível por padrão)
+-- =========================================================
+local ExecutarFrame = Instance.new("Frame")
+ExecutarFrame.Size = UDim2.new(1, 0, 1, -65)
+ExecutarFrame.Position = UDim2.new(0, 0, 0, 65)
+ExecutarFrame.BackgroundTransparency = 1
+ExecutarFrame.Visible = true
+ExecutarFrame.Parent = MainFrame
+
 local CommandInput = Instance.new("TextBox")
-CommandInput.Size = UDim2.new(1, -40, 0, 40)
-CommandInput.Position = UDim2.new(0, 20, 0, 50)
+CommandInput.Size = UDim2.new(1, -60, 0, 45)
+CommandInput.Position = UDim2.new(0, 30, 0, 30)
 CommandInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 CommandInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 CommandInput.Font = Enum.Font.Gotham
-CommandInput.TextSize = 14
+CommandInput.TextSize = 16
 CommandInput.PlaceholderText = "Ex: speed me 50"
 CommandInput.Text = ""
 CommandInput.ClearTextOnFocus = false
-CommandInput.Parent = MainFrame
+CommandInput.Parent = ExecutarFrame
 
 local InputCorner = Instance.new("UICorner")
 InputCorner.CornerRadius = UDim.new(0, 6)
 InputCorner.Parent = CommandInput
 
 local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Size = UDim2.new(1, -40, 0, 35)
-ExecuteBtn.Position = UDim2.new(0, 20, 0, 100)
+ExecuteBtn.Size = UDim2.new(1, -60, 0, 40)
+ExecuteBtn.Position = UDim2.new(0, 30, 0, 95)
 ExecuteBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
 ExecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ExecuteBtn.Font = Enum.Font.GothamBold
 ExecuteBtn.TextSize = 14
 ExecuteBtn.Text = "EXECUTAR COMANDO"
-ExecuteBtn.Parent = MainFrame
+ExecuteBtn.Parent = ExecutarFrame
 
 local ExecCorner = Instance.new("UICorner")
 ExecCorner.CornerRadius = UDim.new(0, 6)
 ExecCorner.Parent = ExecuteBtn
 
--- Fecha a interface
+-- =========================================================
+-- ABA 2: LISTA DE COMANDOS (Oculta por padrão)
+-- =========================================================
+local ComandosFrame = Instance.new("Frame")
+ComandosFrame.Size = UDim2.new(1, 0, 1, -65)
+ComandosFrame.Position = UDim2.new(0, 0, 0, 65)
+ComandosFrame.BackgroundTransparency = 1
+ComandosFrame.Visible = false
+ComandosFrame.Parent = MainFrame
+
+local ScrollComandos = Instance.new("ScrollingFrame")
+ScrollComandos.Size = UDim2.new(1, -20, 1, -20)
+ScrollComandos.Position = UDim2.new(0, 10, 0, 10)
+ScrollComandos.BackgroundTransparency = 1
+ScrollComandos.ScrollBarThickness = 5
+ScrollComandos.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+ScrollComandos.BorderSizePixel = 0
+ScrollComandos.Parent = ComandosFrame
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0, 5)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Parent = ScrollComandos
+
+-- Dados para a lista de comandos
+local ComandosInfo = {
+    {cmd = "kill [alvo]", desc = "Elimina o jogador selecionado."},
+    {cmd = "kick [alvo] [motivo]", desc = "Expulsa o jogador do servidor."},
+    {cmd = "speed [alvo] [número]", desc = "Altera a velocidade (Padrão: 16)."},
+    {cmd = "jump [alvo] [número]", desc = "Altera a força do pulo (Padrão: 50)."},
+    {cmd = "god [alvo]", desc = "Torna o jogador invencível (Vida infinita)."},
+    {cmd = "ungod [alvo]", desc = "Remove a invencibilidade do jogador."},
+    {cmd = "heal [alvo]", desc = "Restaura a vida do jogador ao máximo."},
+    {cmd = "tp [alvo1] [alvo2]", desc = "Teleporta o alvo1 até o alvo2."},
+    {cmd = "bring [alvo]", desc = "Teleporta o jogador até a sua localização."},
+    {cmd = "goto [alvo]", desc = "Teleporta você até a localização do jogador."}
+}
+
+-- Gerar os itens da lista
+for i, info in ipairs(ComandosInfo) do
+    local ItemFrame = Instance.new("Frame")
+    ItemFrame.Size = UDim2.new(1, -10, 0, 40)
+    ItemFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    ItemFrame.BorderSizePixel = 0
+    ItemFrame.Parent = ScrollComandos
+
+    local ItemCorner = Instance.new("UICorner")
+    ItemCorner.CornerRadius = UDim.new(0, 4)
+    ItemCorner.Parent = ItemFrame
+
+    local CmdText = Instance.new("TextLabel")
+    CmdText.Size = UDim2.new(0.4, 0, 1, 0)
+    CmdText.Position = UDim2.new(0, 10, 0, 0)
+    CmdText.BackgroundTransparency = 1
+    CmdText.Text = info.cmd
+    CmdText.TextColor3 = Color3.fromRGB(100, 180, 255)
+    CmdText.Font = Enum.Font.GothamBold
+    CmdText.TextSize = 12
+    CmdText.TextXAlignment = Enum.TextXAlignment.Left
+    CmdText.Parent = ItemFrame
+
+    local DescText = Instance.new("TextLabel")
+    DescText.Size = UDim2.new(0.6, -20, 1, 0)
+    DescText.Position = UDim2.new(0.4, 10, 0, 0)
+    DescText.BackgroundTransparency = 1
+    DescText.Text = info.desc
+    DescText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    DescText.Font = Enum.Font.Gotham
+    DescText.TextSize = 11
+    DescText.TextXAlignment = Enum.TextXAlignment.Left
+    DescText.TextWrapped = true
+    DescText.Parent = ItemFrame
+end
+
+-- Ajustar o tamanho do scroll automaticamente
+ScrollComandos.CanvasSize = UDim2.new(0, 0, 0, #ComandosInfo * 45)
+
+-- =========================================================
+-- LÓGICA DAS ABAS E BOTÕES DA GUI
+-- =========================================================
+
+-- Fechar
 CloseBtn.MouseButton1Click:Connect(function()
     AdmGui:Destroy()
+end)
+
+-- Trocar para Aba Executar
+TabExecutar.MouseButton1Click:Connect(function()
+    ExecutarFrame.Visible = true
+    ComandosFrame.Visible = false
+    TabExecutar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    TabExecutar.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TabComandos.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    TabComandos.TextColor3 = Color3.fromRGB(150, 150, 150)
+end)
+
+-- Trocar para Aba Comandos
+TabComandos.MouseButton1Click:Connect(function()
+    ExecutarFrame.Visible = false
+    ComandosFrame.Visible = true
+    TabComandos.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    TabComandos.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TabExecutar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    TabExecutar.TextColor3 = Color3.fromRGB(150, 150, 150)
 end)
 
 -- =========================================================
@@ -263,10 +404,9 @@ local function ExecuteCommand()
     local text = CommandInput.Text
     if text == "" then return end
     
-    -- Divide a string do input em argumentos
     local args = string.split(text, " ")
     local commandName = string.lower(args[1])
-    table.remove(args, 1) -- Remove o comando, deixando só os alvos/valores
+    table.remove(args, 1) 
     
     if Commands[commandName] then
         local success, err = pcall(function()
@@ -274,7 +414,6 @@ local function ExecuteCommand()
         end)
         
         if success then
-            -- Feedback visual de sucesso
             CommandInput.Text = ""
             CommandInput.PlaceholderText = "Comando '" .. commandName .. "' executado!"
             task.wait(2)
@@ -290,7 +429,6 @@ local function ExecuteCommand()
     end
 end
 
--- Conecta a execução ao clicar no botão ou ao apertar Enter no teclado
 ExecuteBtn.MouseButton1Click:Connect(ExecuteCommand)
 CommandInput.FocusLost:Connect(function(enterPressed)
     if enterPressed then
