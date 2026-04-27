@@ -1,50 +1,136 @@
 -- =========================================================
--- SISTEMA COMPLETO DE COMANDOS ADM (SERVER-SIDE)
+-- PAINEL ADM COM INTERFACE GRÁFICA (HUB)
 -- =========================================================
 
 local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 -- =========================================================
--- CONFIGURAÇÕES
--- =========================================================
-local Prefix = ";" -- O prefixo usado antes do comando (Ex: ;kill me)
-
--- Lista de Administradores. Adicione os nomes de usuário (Username, não DisplayName)
-local Admins = {
-    ["yagosr47"] = true,
-    ["NomeDeOutroAdminAqui"] = true
-}
-
--- =========================================================
--- FUNÇÕES AUXILIARES
+-- 1. CRIAÇÃO DA INTERFACE VISUAL (GUI)
 -- =========================================================
 
--- Verifica se o jogador é admin
-local function IsAdmin(player)
-    return Admins[player.Name] == true
+local AdmGui = Instance.new("ScreenGui")
+AdmGui.Name = "YagoAdmHub"
+AdmGui.ResetOnSpawn = false
+-- Tenta colocar no CoreGui (melhor para executores), se falhar, vai pro PlayerGui
+local success = pcall(function()
+    AdmGui.Parent = game:GetService("CoreGui")
+end)
+if not success then
+    AdmGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Função para encontrar o(s) alvo(s) baseado no texto digitado
-local function GetTargets(caller, targetString)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 400, 0, 150)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -75)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- Permite arrastar o painel pela tela
+MainFrame.Parent = AdmGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleBar
+
+-- Remove o arredondamento inferior da barra de título
+local TitleFix = Instance.new("Frame")
+TitleFix.Size = UDim2.new(1, 0, 0, 10)
+TitleFix.Position = UDim2.new(0, 0, 1, -10)
+TitleFix.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TitleFix.BorderSizePixel = 0
+TitleFix.Parent = TitleBar
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -40, 1, 0)
+TitleText.Position = UDim2.new(0, 10, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Painel de Comando ADM"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TitleBar
+
+local CommandInput = Instance.new("TextBox")
+CommandInput.Size = UDim2.new(1, -40, 0, 40)
+CommandInput.Position = UDim2.new(0, 20, 0, 50)
+CommandInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+CommandInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+CommandInput.Font = Enum.Font.Gotham
+CommandInput.TextSize = 14
+CommandInput.PlaceholderText = "Ex: speed me 50"
+CommandInput.Text = ""
+CommandInput.ClearTextOnFocus = false
+CommandInput.Parent = MainFrame
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = CommandInput
+
+local ExecuteBtn = Instance.new("TextButton")
+ExecuteBtn.Size = UDim2.new(1, -40, 0, 35)
+ExecuteBtn.Position = UDim2.new(0, 20, 0, 100)
+ExecuteBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+ExecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecuteBtn.Font = Enum.Font.GothamBold
+ExecuteBtn.TextSize = 14
+ExecuteBtn.Text = "EXECUTAR COMANDO"
+ExecuteBtn.Parent = MainFrame
+
+local ExecCorner = Instance.new("UICorner")
+ExecCorner.CornerRadius = UDim.new(0, 6)
+ExecCorner.Parent = ExecuteBtn
+
+-- Fecha a interface
+CloseBtn.MouseButton1Click:Connect(function()
+    AdmGui:Destroy()
+end)
+
+-- =========================================================
+-- 2. LÓGICA DE ALVOS (TARGETS)
+-- =========================================================
+
+local function GetTargets(targetString)
     local targets = {}
     if not targetString then return targets end
     
     targetString = string.lower(targetString)
     
     if targetString == "me" then
-        table.insert(targets, caller)
+        table.insert(targets, LocalPlayer)
     elseif targetString == "all" then
         for _, p in ipairs(Players:GetPlayers()) do
             table.insert(targets, p)
         end
     elseif targetString == "others" then
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= caller then 
+            if p ~= LocalPlayer then 
                 table.insert(targets, p) 
             end
         end
     else
-        -- Busca por parte do nome (ex: "yag" encontra "yagosr47")
         for _, p in ipairs(Players:GetPlayers()) do
             if string.sub(string.lower(p.Name), 1, #targetString) == targetString then
                 table.insert(targets, p)
@@ -56,14 +142,13 @@ local function GetTargets(caller, targetString)
 end
 
 -- =========================================================
--- LISTA DE COMANDOS
+-- 3. BANCO DE COMANDOS
 -- =========================================================
+
 local Commands = {}
 
--- Comando: Kill (Mata o jogador)
--- Uso: ;kill [jogador]
-Commands["kill"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["kill"] = function(args)
+    local targets = GetTargets(args[1])
     for _, target in ipairs(targets) do
         if target.Character and target.Character:FindFirstChild("Humanoid") then
             target.Character.Humanoid.Health = 0
@@ -71,25 +156,20 @@ Commands["kill"] = function(caller, args)
     end
 end
 
--- Comando: Kick (Expulsa o jogador do servidor)
--- Uso: ;kick [jogador] [motivo]
-Commands["kick"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
-    table.remove(args, 1) -- Remove o nome do alvo da lista de argumentos
+Commands["kick"] = function(args)
+    local targets = GetTargets(args[1])
+    table.remove(args, 1)
     local reason = table.concat(args, " ")
-    if reason == "" then reason = "Você foi expulso pelo Administrador." end
+    if reason == "" then reason = "Expulso pelo ADM." end
 
     for _, target in ipairs(targets) do
         target:Kick(reason)
     end
 end
 
--- Comando: Speed / Ws (Altera a velocidade)
--- Uso: ;speed [jogador] [numero]
-Commands["speed"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["speed"] = function(args)
+    local targets = GetTargets(args[1])
     local speedValue = tonumber(args[2]) or 16
-
     for _, target in ipairs(targets) do
         if target.Character and target.Character:FindFirstChild("Humanoid") then
             target.Character.Humanoid.WalkSpeed = speedValue
@@ -97,12 +177,9 @@ Commands["speed"] = function(caller, args)
     end
 end
 
--- Comando: Jump (Altera o pulo)
--- Uso: ;jump [jogador] [numero]
-Commands["jump"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["jump"] = function(args)
+    local targets = GetTargets(args[1])
     local jumpValue = tonumber(args[2]) or 50
-
     for _, target in ipairs(targets) do
         if target.Character and target.Character:FindFirstChild("Humanoid") then
             target.Character.Humanoid.JumpPower = jumpValue
@@ -111,10 +188,8 @@ Commands["jump"] = function(caller, args)
     end
 end
 
--- Comando: God (Deixa o jogador invencível)
--- Uso: ;god [jogador]
-Commands["god"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["god"] = function(args)
+    local targets = GetTargets(args[1])
     for _, target in ipairs(targets) do
         if target.Character and target.Character:FindFirstChild("Humanoid") then
             target.Character.Humanoid.MaxHealth = math.huge
@@ -123,10 +198,8 @@ Commands["god"] = function(caller, args)
     end
 end
 
--- Comando: Ungod (Remove a invencibilidade)
--- Uso: ;ungod [jogador]
-Commands["ungod"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["ungod"] = function(args)
+    local targets = GetTargets(args[1])
     for _, target in ipairs(targets) do
         if target.Character and target.Character:FindFirstChild("Humanoid") then
             target.Character.Humanoid.MaxHealth = 100
@@ -135,10 +208,8 @@ Commands["ungod"] = function(caller, args)
     end
 end
 
--- Comando: Heal (Cura o jogador)
--- Uso: ;heal [jogador]
-Commands["heal"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["heal"] = function(args)
+    local targets = GetTargets(args[1])
     for _, target in ipairs(targets) do
         if target.Character and target.Character:FindFirstChild("Humanoid") then
             target.Character.Humanoid.Health = target.Character.Humanoid.MaxHealth
@@ -146,11 +217,9 @@ Commands["heal"] = function(caller, args)
     end
 end
 
--- Comando: Tp / Teleport (Teleporta o jogador A para o jogador B)
--- Uso: ;tp [jogador1] [jogador2]
-Commands["tp"] = function(caller, args)
-    local targetsA = GetTargets(caller, args[1])
-    local targetsB = GetTargets(caller, args[2])
+Commands["tp"] = function(args)
+    local targetsA = GetTargets(args[1])
+    local targetsB = GetTargets(args[2])
     
     if #targetsA > 0 and #targetsB > 0 then
         local destination = targetsB[1].Character
@@ -164,118 +233,67 @@ Commands["tp"] = function(caller, args)
     end
 end
 
--- Comando: Bring (Traz o jogador até você)
--- Uso: ;bring [jogador]
-Commands["bring"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
-    if caller.Character and caller.Character:FindFirstChild("HumanoidRootPart") then
-        local myCFrame = caller.Character.HumanoidRootPart.CFrame
+Commands["bring"] = function(args)
+    local targets = GetTargets(args[1])
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
         for _, target in ipairs(targets) do
             if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                -- Adiciona um pequeno offset para não nascer exatamente dentro de você
                 target.Character.HumanoidRootPart.CFrame = myCFrame * CFrame.new(0, 0, -5)
             end
         end
     end
 end
 
--- Comando: Goto (Vai até o jogador)
--- Uso: ;goto [jogador]
-Commands["goto"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
+Commands["goto"] = function(args)
+    local targets = GetTargets(args[1])
     if #targets > 0 then
         local destination = targets[1].Character
-        if destination and destination:FindFirstChild("HumanoidRootPart") and caller.Character and caller.Character:FindFirstChild("HumanoidRootPart") then
-            caller.Character.HumanoidRootPart.CFrame = destination.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
-        end
-    end
-end
-
--- Comando: Freeze (Congela o jogador)
--- Uso: ;freeze [jogador]
-Commands["freeze"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
-    for _, target in ipairs(targets) do
-        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            target.Character.HumanoidRootPart.Anchored = true
-        end
-    end
-end
-
--- Comando: Unfreeze (Descongela o jogador)
--- Uso: ;unfreeze [jogador]
-Commands["unfreeze"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
-    for _, target in ipairs(targets) do
-        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            target.Character.HumanoidRootPart.Anchored = false
-        end
-    end
-end
-
--- Comando: Ff (Dá ForceField ao jogador)
--- Uso: ;ff [jogador]
-Commands["ff"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
-    for _, target in ipairs(targets) do
-        if target.Character then
-            if not target.Character:FindFirstChildOfClass("ForceField") then
-                Instance.new("ForceField", target.Character)
-            end
-        end
-    end
-end
-
--- Comando: Unff (Remove o ForceField)
--- Uso: ;unff [jogador]
-Commands["unff"] = function(caller, args)
-    local targets = GetTargets(caller, args[1])
-    for _, target in ipairs(targets) do
-        if target.Character then
-            for _, child in ipairs(target.Character:GetChildren()) do
-                if child:IsA("ForceField") then
-                    child:Destroy()
-                end
-            end
+        if destination and destination:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = destination.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
         end
     end
 end
 
 -- =========================================================
--- PROCESSADOR DE MENSAGENS (CHAT)
+-- 4. PROCESSADOR DE COMANDOS DA INTERFACE
 -- =========================================================
 
-local function OnPlayerAdded(player)
-    player.Chatted:Connect(function(message)
-        -- Verifica se o jogador é admin e se a mensagem começa com o prefixo
-        if IsAdmin(player) and string.sub(message, 1, #Prefix) == Prefix then
-            
-            -- Remove o prefixo da mensagem e divide em palavras
-            local msgWithoutPrefix = string.sub(message, #Prefix + 1)
-            local args = string.split(msgWithoutPrefix, " ")
-            
-            -- O primeiro argumento é o comando (tudo em minúsculo para facilitar)
-            local commandName = string.lower(args[1])
-            table.remove(args, 1) -- Remove o nome do comando da lista de argumentos
-            
-            -- Executa o comando se ele existir na tabela de Commands
-            if Commands[commandName] then
-                -- O 'pcall' evita que o script quebre se houver um erro durante a execução do comando
-                local success, err = pcall(function()
-                    Commands[commandName](player, args)
-                end)
-                
-                if not success then
-                    warn("Erro ao executar comando " .. commandName .. ": " .. tostring(err))
-                end
-            end
+local function ExecuteCommand()
+    local text = CommandInput.Text
+    if text == "" then return end
+    
+    -- Divide a string do input em argumentos
+    local args = string.split(text, " ")
+    local commandName = string.lower(args[1])
+    table.remove(args, 1) -- Remove o comando, deixando só os alvos/valores
+    
+    if Commands[commandName] then
+        local success, err = pcall(function()
+            Commands[commandName](args)
+        end)
+        
+        if success then
+            -- Feedback visual de sucesso
+            CommandInput.Text = ""
+            CommandInput.PlaceholderText = "Comando '" .. commandName .. "' executado!"
+            task.wait(2)
+            CommandInput.PlaceholderText = "Ex: speed me 50"
+        else
+            warn("Erro no comando: " .. tostring(err))
         end
-    end)
+    else
+        CommandInput.Text = ""
+        CommandInput.PlaceholderText = "Comando não encontrado!"
+        task.wait(2)
+        CommandInput.PlaceholderText = "Ex: speed me 50"
+    end
 end
 
--- Conecta a função aos jogadores que já estão no jogo e aos que entrarem
-for _, player in ipairs(Players:GetPlayers()) do
-    OnPlayerAdded(player)
-end
-
-Players.PlayerAdded:Connect(OnPlayerAdded)
+-- Conecta a execução ao clicar no botão ou ao apertar Enter no teclado
+ExecuteBtn.MouseButton1Click:Connect(ExecuteCommand)
+CommandInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        ExecuteCommand()
+    end
+end)
