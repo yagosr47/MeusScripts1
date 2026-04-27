@@ -1,12 +1,16 @@
 -- =========================================================
--- HUB DEATH NOTE (NOTA DE MORTE) - CLIENT-SIDE EXPLOIT
+-- HUB DEATH NOTE (NOTA DE MORTE) - V2 (ADVANCED ESP & TRACKING)
 -- =========================================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
+
+-- Variável Global para rastrear quem pegou o Death Note cedo
+local EarlyDeathNoteFinder = nil
 
 -- =========================================================
 -- 1. CRIAÇÃO DA INTERFACE (GUI)
@@ -24,8 +28,8 @@ if not success then
 end
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 350, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 350, 0, 360) -- Aumentado para caber novos botões
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -180)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -39,7 +43,7 @@ UICorner.Parent = MainFrame
 -- Barra de Título
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 35)
-TitleBar.BackgroundColor3 = Color3.fromRGB(150, 0, 0) -- Vermelho escuro temático
+TitleBar.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 TitleBar.Parent = MainFrame
 local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 8)
@@ -55,7 +59,7 @@ local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -40, 1, 0)
 TitleText.Position = UDim2.new(0, 10, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "DEATH NOTE SCRIPT"
+TitleText.Text = "DEATH NOTE SCRIPT V2"
 TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleText.Font = Enum.Font.GothamBlack
 TitleText.TextSize = 16
@@ -84,62 +88,122 @@ ButtonsFrame.BackgroundTransparency = 1
 ButtonsFrame.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.Padding = UDim.new(0, 8)
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Parent = ButtonsFrame
 
--- Função para criar botões padronizados
 local function CreateButton(text, parent)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.Size = UDim2.new(1, 0, 0, 35)
     btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
+    btn.TextSize = 13
     btn.Text = text
-    
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = btn
-    
     btn.Parent = parent
     return btn
 end
 
 local BtnESPPlayers = CreateButton("Ativar ESP (Funções/Nomes)", ButtonsFrame)
 local BtnESPItems = CreateButton("Ativar ESP (Cartões de ID)", ButtonsFrame)
+local BtnCheckProbs = CreateButton("🔍 Buscar Probabilidades no Servidor", ButtonsFrame)
 local BtnProbKira = CreateButton("Forçar Chance: KIRA (Bypass)", ButtonsFrame)
 local BtnProbL = CreateButton("Forçar Chance: L (Bypass)", ButtonsFrame)
 
 -- =========================================================
--- 2. LÓGICA DE ESP DE JOGADORES (FUNÇÕES)
+-- 2. DETECÇÃO ANTECIPADA (EARLY FINDER) & LEITURA DE INTERFACE
 -- =========================================================
-local ESPPlayersAtivo = false
 
--- Função inteligente para descobrir a classe (role) do jogador
+-- Monitora o Backpack de todos os jogadores constantemente para achar quem pegou antes do jogo iniciar
+task.spawn(function()
+    while task.wait(0.5) do
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player:FindFirstChild("Backpack") then
+                for _, item in ipairs(player.Backpack:GetChildren()) do
+                    local name = string.lower(item.Name)
+                    if string.find(name, "death") or string.find(name, "caderno") or string.find(name, "note") then
+                        EarlyDeathNoteFinder = player.Name
+                    end
+                end
+            end
+            -- Verifica se está segurando na mão
+            if player.Character then
+                local tool = player.Character:FindFirstChildOfClass("Tool")
+                if tool then
+                    local name = string.lower(tool.Name)
+                    if string.find(name, "death") or string.find(name, "note") then
+                        EarlyDeathNoteFinder = player.Name
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Tenta ler a interface (PlayerGui) distribuída no início da rodada
+-- Nota: Em jogos seguros (FilteringEnabled), só podemos ler a nossa própria GUI com certeza.
+-- Porém, lemos a dos outros caso o jogo replique a UI mal configurada.
+local function ScanGUIForRole(player)
+    local roleFound = nil
+    pcall(function()
+        if player:FindFirstChild("PlayerGui") then
+            for _, gui in pairs(player.PlayerGui:GetDescendants()) do
+                if gui:IsA("TextLabel") or gui:IsA("TextButton") then
+                    local text = string.lower(gui.Text)
+                    if string.find(text, "você é o kira") or string.find(text, "role: kira") then
+                        roleFound = "Kira"
+                    elseif string.find(text, "você é o l") or string.find(text, "role: l") or string.find(text, "investigador") then
+                        roleFound = "Investigador / L"
+                    elseif string.find(text, "inocente") then
+                        roleFound = "Inocente"
+                    end
+                end
+            end
+        end
+    end)
+    return roleFound
+end
+
 local function GetPlayerRole(player)
-    -- 1. Verifica se o jogo salva no próprio objeto do jogador (StringValue/Objeto)
+    -- 0. Verifica se ele pegou o Death Note antes da partida iniciar
+    if EarlyDeathNoteFinder == player.Name then
+        return "Kira (Pegou o Caderno Cedo)"
+    end
+
+    -- 1. Varredura de Interface (GUI) de início de rodada
+    local guiRole = ScanGUIForRole(player)
+    if guiRole then return guiRole end
+
+    -- 2. Varredura de valores no Servidor/ReplicatedStorage para esse jogador
+    if ReplicatedStorage:FindFirstChild(player.Name) then
+        local pFolder = ReplicatedStorage[player.Name]
+        if pFolder:FindFirstChild("Role") then return pFolder.Role.Value end
+    end
+
+    -- 3. Verifica propriedades diretas no objeto Player
     if player:FindFirstChild("Role") then return player.Role.Value end
     if player:FindFirstChild("Equipe") then return player.Equipe.Value end
     
-    -- 2. Verifica se o jogador tem ferramentas (ferramentas como o caderno indicam Kira)
+    -- 4. Verifica Backpack (Ferramentas)
     if player:FindFirstChild("Backpack") then
         for _, item in ipairs(player.Backpack:GetChildren()) do
             local name = string.lower(item.Name)
-            if string.find(name, "death") or string.find(name, "caderno") or string.find(name, "note") then
-                return "Kira (Com Caderno)"
+            if string.find(name, "death") or string.find(name, "note") then
+                return "Kira (Caderno na Mochila)"
             end
         end
     end
     
-    -- 3. Verifica no Character
+    -- 5. Verifica no Character (Ferramenta na mão ou Valores no Modelo)
     if player.Character then
         if player.Character:FindFirstChild("Role") then return player.Character.Role.Value end
-        -- Se estiver segurando o item na mão
         local tool = player.Character:FindFirstChildOfClass("Tool")
         if tool then
             local name = string.lower(tool.Name)
-            if string.find(name, "death") or string.find(name, "note") then return "Kira" end
+            if string.find(name, "death") or string.find(name, "note") then return "Kira (Caderno na Mão)" end
             if string.find(name, "id") or string.find(name, "cartão") then return "Investigador / L" end
         end
     end
@@ -147,12 +211,16 @@ local function GetPlayerRole(player)
     return "Inocente / Desconhecido"
 end
 
+-- =========================================================
+-- 3. LÓGICA DE ESP DE JOGADORES
+-- =========================================================
+local ESPPlayersAtivo = false
+
 local function UpdatePlayerESP()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
             local head = player.Character.Head
             
-            -- Remove o ESP antigo se existir
             if head:FindFirstChild("RoleESP") then
                 head.RoleESP:Destroy()
             end
@@ -160,11 +228,10 @@ local function UpdatePlayerESP()
             if ESPPlayersAtivo then
                 local role = GetPlayerRole(player)
                 
-                -- Cor baseada na função
                 local roleColor = Color3.fromRGB(200, 200, 200) -- Inocente (Cinza)
                 if string.find(string.lower(role), "kira") then
                     roleColor = Color3.fromRGB(255, 50, 50) -- Kira (Vermelho)
-                elseif string.find(string.lower(role), "l") or string.find(string.lower(role), "near") then
+                elseif string.find(string.lower(role), "l") or string.find(string.lower(role), "near") or string.find(string.lower(role), "investigador") then
                     roleColor = Color3.fromRGB(50, 100, 255) -- L/Near (Azul)
                 end
                 
@@ -172,14 +239,14 @@ local function UpdatePlayerESP()
                 billboard.Name = "RoleESP"
                 billboard.Size = UDim2.new(0, 200, 0, 50)
                 billboard.StudsOffset = Vector3.new(0, 3, 0)
-                billboard.AlwaysOnTop = true -- Mostra através das paredes
+                billboard.AlwaysOnTop = true
                 
                 local textLabel = Instance.new("TextLabel")
                 textLabel.Size = UDim2.new(1, 0, 1, 0)
                 textLabel.BackgroundTransparency = 1
                 textLabel.Text = player.Name .. "\n[" .. role .. "]"
                 textLabel.TextColor3 = roleColor
-                textLabel.TextStrokeTransparency = 0 -- Borda preta para ler de longe
+                textLabel.TextStrokeTransparency = 0
                 textLabel.Font = Enum.Font.GothamBold
                 textLabel.TextSize = 12
                 textLabel.Parent = billboard
@@ -198,11 +265,10 @@ BtnESPPlayers.MouseButton1Click:Connect(function()
     else
         BtnESPPlayers.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         BtnESPPlayers.Text = "Ativar ESP (Funções/Nomes)"
-        UpdatePlayerESP() -- Limpa o ESP ao desligar
+        UpdatePlayerESP()
     end
 end)
 
--- Atualiza o ESP dos jogadores a cada segundo
 task.spawn(function()
     while task.wait(1) do
         if ESPPlayersAtivo then
@@ -212,12 +278,11 @@ task.spawn(function()
 end)
 
 -- =========================================================
--- 3. LÓGICA DE ESP DE ITENS (CARTÕES ID)
+-- 4. ESP DE CARTÕES (ID)
 -- =========================================================
 local ESPItemsAtivo = false
 
 local function UpdateItemESP()
-    -- Limpa todos os ESPs de itens anteriores
     for _, v in pairs(Workspace:GetDescendants()) do
         if v:IsA("BillboardGui") and v.Name == "ItemESP" then
             v:Destroy()
@@ -226,12 +291,10 @@ local function UpdateItemESP()
 
     if ESPItemsAtivo then
         for _, item in ipairs(Workspace:GetDescendants()) do
-            -- Procura por itens que possam ser cartões de ID ou cadernos
             if item:IsA("BasePart") or item:IsA("Tool") or item:IsA("Model") then
                 local name = string.lower(item.Name)
                 if string.find(name, "id") or string.find(name, "card") or string.find(name, "cartão") or string.find(name, "note") then
                     
-                    -- Acha a parte principal do item para colocar a UI
                     local targetPart = item
                     if item:IsA("Model") or item:IsA("Tool") then
                         targetPart = item:FindFirstChild("Handle") or item:FindFirstChildOfClass("BasePart")
@@ -247,7 +310,7 @@ local function UpdateItemESP()
                         textLabel.Size = UDim2.new(1, 0, 1, 0)
                         textLabel.BackgroundTransparency = 1
                         textLabel.Text = "★ " .. item.Name
-                        textLabel.TextColor3 = Color3.fromRGB(255, 200, 50) -- Amarelo para destacar
+                        textLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
                         textLabel.TextStrokeTransparency = 0
                         textLabel.Font = Enum.Font.GothamSemibold
                         textLabel.TextSize = 10
@@ -273,34 +336,51 @@ BtnESPItems.MouseButton1Click:Connect(function()
     UpdateItemESP()
 end)
 
--- Atualiza itens a cada 3 segundos (menos frequente para evitar lag)
 task.spawn(function()
     while task.wait(3) do
-        if ESPItemsAtivo then
-            UpdateItemESP()
-        end
+        if ESPItemsAtivo then UpdateItemESP() end
     end
 end)
 
 -- =========================================================
--- 4. MANIPULAÇÃO DE PROBABILIDADE (BYPASS ATTEMPT)
+-- 5. BUSCA DE PROBABILIDADES NO SERVIDOR E BYPASS
 -- =========================================================
--- Como a probabilidade costuma ser Server-Side, este script
--- tenta achar Eventos Remotos mal protegidos que os desenvolvedores
--- deixam no ReplicatedStorage para testar o jogo.
+
+BtnCheckProbs.MouseButton1Click:Connect(function()
+    BtnCheckProbs.Text = "Buscando..."
+    local foundProbs = {}
+    
+    -- Varre ReplicatedStorage buscando valores numéricos de probabilidade
+    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
+        if v:IsA("IntValue") or v:IsA("NumberValue") then
+            local name = string.lower(v.Name)
+            if string.find(name, "chance") or string.find(name, "prob") or string.find(name, "rate") then
+                table.insert(foundProbs, v.Name .. ": " .. tostring(v.Value) .. "%")
+            end
+        end
+    end
+    
+    if #foundProbs > 0 then
+        print("--- PROBABILIDADES DO SERVIDOR ---")
+        for _, prob in ipairs(foundProbs) do
+            print(prob)
+        end
+        BtnCheckProbs.Text = "Ver Console (F9) para Resultados"
+    else
+        BtnCheckProbs.Text = "Nenhuma Prob. Pública Achada"
+    end
+    
+    task.wait(3)
+    BtnCheckProbs.Text = "🔍 Buscar Probabilidades no Servidor"
+end)
 
 local function AttemptToSetRole(roleName)
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    
-    -- Tenta encontrar e disparar eventos remotos comuns em jogos de Murder/DeathNote
     local remoteNames = {"SetRole", "ChangeRole", "SelectRole", "RoleEvent", "UpdateProbability", "SetKira", "SetL"}
-    
     local successFire = false
     
     for _, rName in ipairs(remoteNames) do
         local remote = ReplicatedStorage:FindFirstChild(rName, true)
         if remote and remote:IsA("RemoteEvent") then
-            -- Tenta enviar o cargo desejado ou probabilidade 100%
             pcall(function()
                 remote:FireServer(roleName)
                 remote:FireServer(roleName, 100) 
@@ -314,15 +394,13 @@ local function AttemptToSetRole(roleName)
         end
     end
     
-    -- Tenta alterar valores locais (pode não replicar, mas vale a pena forçar localmente)
-    if LocalPlayer:FindFirstChild("KiraChance") then
-        LocalPlayer.KiraChance.Value = 100
-    end
+    if LocalPlayer:FindFirstChild("KiraChance") then LocalPlayer.KiraChance.Value = 100 end
+    if LocalPlayer:FindFirstChild("Chance") then LocalPlayer.Chance.Value = 100 end
     
     if successFire then
         print("Exploit de Probabilidade enviado ao servidor para: " .. roleName)
     else
-        warn("Nenhum RemoteEvent desprotegido encontrado para " .. roleName .. ". O jogo pode ter um anti-cheat seguro.")
+        warn("Nenhum RemoteEvent desprotegido encontrado.")
     end
 end
 
@@ -344,4 +422,3 @@ BtnProbL.MouseButton1Click:Connect(function()
     BtnProbL.Text = "Forçar Chance: L (Bypass)"
     BtnProbL.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 end)
-
