@@ -1,275 +1,223 @@
 -- ==========================================================
--- DEATH NOTE: Sistema de Gerenciamento de Modos de Jogo
--- Script Base para Servidor (ServerScriptService)
+-- DEATH NOTE ROBLOX - EXECUTOR HUB
+-- Baseado nas mecânicas: ESP de IDs, Death Notes e Players
 -- ==========================================================
 
-local GameManager = {}
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
 
--- Enumeração dos Modos de Jogo disponíveis baseados na Wiki
-GameManager.GameModes = {
-	ShinigamisGrave = "Shinigami's Grave",
-	LsGame = "L's Game",
-	DeathNote = "Death Note",
-	DeathNoteHard = "Death Note (Hard)",
-	RemsGame = "Rem's Game",
-	NearsGame = "Near's Game",
-	MisasGame = "Misa's Game",
-	MellosGame = "Mello's Game",
-	XKira = "X-Kira",
-	RLGL = "Red Light Green Light"
+local LocalPlayer = Players.LocalPlayer
+
+-- ==========================================
+-- PROTEÇÃO E CRIAÇÃO DA GUI
+-- ==========================================
+local DeathNoteHub = Instance.new("ScreenGui")
+DeathNoteHub.Name = "DeathNoteHub_Exec"
+DeathNoteHub.ResetOnSpawn = false
+
+-- Tenta colocar no CoreGui para bypassar anti-cheats básicos, se falhar vai pro PlayerGui
+local success = pcall(function()
+    DeathNoteHub.Parent = CoreGui
+end)
+if not success then
+    DeathNoteHub.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 320)
+MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(150, 0, 0)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = DeathNoteHub
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Title.Text = "DEATH NOTE HUB"
+Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+Title.Font = Enum.Font.Oswald
+Title.TextSize = 24
+Title.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = MainFrame
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Espaçamento do título
+local Padding = Instance.new("UIPadding")
+Padding.PaddingTop = UDim.new(0, 50)
+Padding.Parent = MainFrame
+
+-- Função para criar botões Toggle
+local function createToggle(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
+    btn.Text = name .. " [OFF]"
+    btn.Parent = MainFrame
+    return btn
+end
+
+-- ==========================================
+-- VARIÁVEIS DE ESTADO (TOGGLES)
+-- ==========================================
+local states = {
+    DeathNoteESP = false,
+    IdESP = false,
+    PlayerESP = false,
+    Fullbright = false
 }
 
--- Enumeração de Papéis (Roles)
-GameManager.Roles = {
-	Innocent = "Innocent",
-	Kira = "Kira",
-	L = "L",
-	Mello = "Mello",
-	Gelus = "Gelus",
-	Near = "Near",
-	Misa = "Misa",
-	Takada = "Takada",
-	XKira = "X-Kira",
-	Shinigami = "Shinigami",
-	Sinner = "Sinner"
-}
+-- ==========================================
+-- FUNÇÕES DE ESP (EXTRAÇÃO DO WORKSPACE)
+-- ==========================================
 
--- Variáveis de Estado da Partida
-local currentMode = nil
-local activePlayers = {} -- Jogadores vivos
-local playerRoles = {} -- Tabela mapeando [Player] = Role
-local isVotingPhase = false
-
--- ==========================================================
--- FUNÇÕES DE UTILIDADE
--- ==========================================================
-
--- Retorna um jogador aleatório da lista e o remove da pool de seleção
-local function getRandomPlayer(pool)
-	if #pool == 0 then return nil end
-	local index = math.random(1, #pool)
-	local player = pool[index]
-	table.remove(pool, index)
-	return player
+local function createESP(instance, color, nameText)
+    if not instance:FindFirstChild("DN_ESP") then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "DN_ESP"
+        billboard.AlwaysOnTop = true
+        billboard.Size = UDim2.new(0, 100, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 2, 0)
+        
+        local text = Instance.new("TextLabel")
+        text.Size = UDim2.new(1, 0, 1, 0)
+        text.BackgroundTransparency = 1
+        text.Text = nameText
+        text.TextColor3 = color
+        text.TextStrokeTransparency = 0
+        text.Font = Enum.Font.SourceSansBold
+        text.TextSize = 14
+        text.Parent = billboard
+        
+        billboard.Parent = instance
+    end
 end
 
--- ==========================================================
--- LÓGICA DE DISTRIBUIÇÃO DE PAPÉIS
--- ==========================================================
-
-function GameManager.AssignRoles(mode, players)
-	playerRoles = {}
-	activePlayers = {}
-	
-	-- Copia os jogadores para a pool de sorteio
-	local pool = {}
-	for _, p in ipairs(players) do
-		table.insert(pool, p)
-		table.insert(activePlayers, p)
-	end
-	
-	if mode == GameManager.GameModes.LsGame then
-		-- L's Game: 1 L, 1 Gelus, 1 Mello, 2 Kiras, resto Innocent
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.L
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Gelus
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Mello
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Kira
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Kira
-		
-		-- O resto é inocente
-		for _, p in ipairs(pool) do
-			playerRoles[p] = GameManager.Roles.Innocent
-		end
-
-	elseif mode == GameManager.GameModes.ShinigamisGrave then
-		-- 2 Shinigamis, resto Sinners
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Shinigami
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Shinigami
-		for _, p in ipairs(pool) do
-			playerRoles[p] = GameManager.Roles.Sinner
-		end
-		
-	elseif mode == GameManager.GameModes.MellosGame then
-		-- Mello, Near, Kira, Takada, Innocent
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Mello
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Near
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Kira
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Takada
-		for _, p in ipairs(pool) do
-			playerRoles[p] = GameManager.Roles.Innocent
-		end
-		
-	elseif mode == GameManager.GameModes.XKira then
-		-- 1 X-Kira, 0 a 2 Takadas dependendo do tamanho do servidor
-		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.XKira
-		
-		local numTakadas = #players > 10 and 2 or 1
-		for i = 1, numTakadas do
-			local t = getRandomPlayer(pool)
-			if t then playerRoles[t] = GameManager.Roles.Takada end
-		end
-		
-		for _, p in ipairs(pool) do
-			playerRoles[p] = GameManager.Roles.Innocent
-		end
-	end
-	
-	-- (Outros modos seguem lógicas similares baseadas na Wiki)
-	print("Papéis distribuídos para o modo: " .. mode)
+local function clearESP(espName)
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BillboardGui") and v.Name == espName then
+            v:Destroy()
+        end
+    end
 end
 
--- ==========================================================
--- MECÂNICAS ESPECÍFICAS DE AÇÕES DURANTE O ROUND
--- ==========================================================
+-- ==========================================
+-- LÓGICA DOS BOTÕES
+-- ==========================================
 
--- Lógica para o Gelus proteger alguém (L's Game)
-function GameManager.GelusProtect(gelusPlayer, targetPlayer)
-	if playerRoles[gelusPlayer] == GameManager.Roles.Gelus then
-		targetPlayer:SetAttribute("ProtectedByGelus", true)
-		print(targetPlayer.Name .. " foi protegido por Gelus!")
-	end
-end
+-- 1. Death Note ESP (Spots Death Notes for free)
+local btnDN = createToggle("Death Note ESP")
+btnDN.MouseButton1Click:Connect(function()
+    states.DeathNoteESP = not states.DeathNoteESP
+    btnDN.Text = "Death Note ESP " .. (states.DeathNoteESP and "[ON]" or "[OFF]")
+    btnDN.TextColor3 = states.DeathNoteESP and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 255, 255)
+    
+    if not states.DeathNoteESP then
+        clearESP("DN_ESP_NOTE")
+    end
+end)
 
--- Lógica para Kira matar (Geral)
-function GameManager.KiraAttemptKill(kiraPlayer, targetPlayer)
-	local role = playerRoles[kiraPlayer]
-	if role == GameManager.Roles.Kira or role == GameManager.Roles.XKira or role == GameManager.Roles.Misa then
-		
-		-- Verifica se o jogador está protegido (Gelus) ou confinado (Mello)
-		if targetPlayer:GetAttribute("ProtectedByGelus") then
-			print("Assassinato falhou: Jogador protegido.")
-			targetPlayer:SetAttribute("ProtectedByGelus", false) -- Remove proteção após o uso
-			return false
-		end
-		
-		if kiraPlayer:GetAttribute("ConfinedByMello") then
-			print("Assassinato cancelado: Kira está confinado por Mello.")
-			return false
-		end
-		
-		-- Executa a morte
-		GameManager.EliminatePlayer(targetPlayer)
-		return true
-	end
-end
+-- 2. I.D. ESP (Spots IDs for free)
+local btnID = createToggle("I.D. ESP")
+btnID.MouseButton1Click:Connect(function()
+    states.IdESP = not states.IdESP
+    btnID.Text = "I.D. ESP " .. (states.IdESP and "[ON]" or "[OFF]")
+    btnID.TextColor3 = states.IdESP and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 255, 255)
+    
+    if not states.IdESP then
+        clearESP("DN_ESP_ID")
+    end
+end)
 
--- Lógica para o Mello Confinar / Atirar
-function GameManager.MelloAction(melloPlayer, targetPlayer, actionType)
-	if playerRoles[melloPlayer] ~= GameManager.Roles.Mello then return end
-	
-	if actionType == "Confine" and not melloPlayer:GetAttribute("HasActed") then
-		targetPlayer:SetAttribute("ConfinedByMello", true)
-		melloPlayer:SetAttribute("ConfinedTarget", targetPlayer.Name)
-		melloPlayer:SetAttribute("HasActed", true)
-		print(targetPlayer.Name .. " foi confinado por Mello.")
-		
-	elseif actionType == "Shoot" then
-		-- Mello só pode atirar se o alvo for Kira e estiver confinado (segundo a wiki)
-		local isTargetKira = (playerRoles[targetPlayer] == GameManager.Roles.Kira)
-		
-		if isTargetKira then
-			print("Mello atirou e matou Kira!")
-			GameManager.EliminatePlayer(targetPlayer)
-		else
-			print("Mello atirou na pessoa errada. Ação desperdiçada.")
-		end
-		melloPlayer:SetAttribute("HasActed", true)
-	end
-end
+-- 3. Player ESP
+local btnPlayer = createToggle("Player ESP")
+btnPlayer.MouseButton1Click:Connect(function()
+    states.PlayerESP = not states.PlayerESP
+    btnPlayer.Text = "Player ESP " .. (states.PlayerESP and "[ON]" or "[OFF]")
+    btnPlayer.TextColor3 = states.PlayerESP and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 255, 255)
+    
+    if not states.PlayerESP then
+        clearESP("DN_ESP_PLAYER")
+    end
+end)
 
--- Lógica de Scanear IDs (L e Near)
-function GameManager.ScanID(detectivePlayer, targetPlayer)
-	local role = playerRoles[detectivePlayer]
-	if role == GameManager.Roles.L or role == GameManager.Roles.Near then
-		local targetRole = playerRoles[targetPlayer]
-		
-		-- Tratamento do Perk "Memory Loss"
-		if targetPlayer:GetAttribute("HasMemoryLossPerk") then
-			return GameManager.Roles.Innocent
-		end
-		
-		-- Takada aparece como Kira para L/Near no modo X-Kira
-		if targetRole == GameManager.Roles.Takada then
-			return GameManager.Roles.Kira
-		end
-		
-		return targetRole
-	end
-end
+-- 4. Fullbright (Shinigami Vision)
+local btnBright = createToggle("Shinigami Vision")
+btnBright.MouseButton1Click:Connect(function()
+    states.Fullbright = not states.Fullbright
+    btnBright.Text = "Shinigami Vision " .. (states.Fullbright and "[ON]" or "[OFF]")
+    btnBright.TextColor3 = states.Fullbright and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 255, 255)
+    
+    if states.Fullbright then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    else
+        Lighting.Ambient = Color3.fromRGB(128, 128, 128) -- Cores padrão aproximadas
+        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    end
+end)
 
--- ==========================================================
--- SISTEMA DE ELIMINAÇÃO E FASE DE VOTAÇÃO
--- ==========================================================
+-- ==========================================
+-- LOOP DE ATUALIZAÇÃO (RENDER STEPPED)
+-- ==========================================
+RunService.RenderStepped:Connect(function()
+    
+    -- Atualiza ESP de Itens no Workspace
+    if states.DeathNoteESP or states.IdESP then
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") or obj:IsA("Model") then
+                local name = string.lower(obj.Name)
+                
+                -- Checa por Death Notes
+                if states.DeathNoteESP and (string.find(name, "deathnote") or string.find(name, "death note")) then
+                    if not obj:FindFirstChild("DN_ESP_NOTE") then
+                        local esp = createESP(obj, Color3.fromRGB(0, 0, 0), "💀 DEATH NOTE")
+                        if obj:FindFirstChild("DN_ESP") then obj.DN_ESP.Name = "DN_ESP_NOTE" end
+                    end
+                end
+                
+                -- Checa por IDs
+                if states.IdESP and (string.find(name, "id") or string.find(name, "i.d")) and not string.find(name, "video") then
+                    if not obj:FindFirstChild("DN_ESP_ID") then
+                        local esp = createESP(obj, Color3.fromRGB(0, 255, 255), "🪪 I.D.")
+                        if obj:FindFirstChild("DN_ESP") then obj.DN_ESP.Name = "DN_ESP_ID" end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Atualiza ESP de Players
+    if states.PlayerESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                local head = p.Character.Head
+                if not head:FindFirstChild("DN_ESP_PLAYER") then
+                    createESP(head, Color3.fromRGB(255, 0, 0), p.Name)
+                    if head:FindFirstChild("DN_ESP") then head.DN_ESP.Name = "DN_ESP_PLAYER" end
+                end
+            end
+        end
+    end
+end)
 
-function GameManager.EliminatePlayer(player)
-	-- Lógica de substituição da Takada
-	local role = playerRoles[player]
-	if role == GameManager.Roles.Kira and currentMode == GameManager.GameModes.MellosGame then
-		-- Procura se há uma Takada viva para assumir
-		for p, r in pairs(playerRoles) do
-			if r == GameManager.Roles.Takada and table.find(activePlayers, p) then
-				playerRoles[p] = GameManager.Roles.Kira
-				print("Takada assumiu o papel de Kira!")
-				break
-			end
-		end
-	end
-	
-	-- Remove dos ativos
-	local index = table.find(activePlayers, player)
-	if index then
-		table.remove(activePlayers, index)
-	end
-	print(player.Name .. " foi eliminado.")
-	
-	GameManager.CheckWinCondition()
-end
+-- Tecla de atalho para fechar/abrir o menu (Right Shift)
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        DeathNoteHub.Enabled = not DeathNoteHub.Enabled
+    end
+end)
 
-function GameManager.StartVotingPhase()
-	isVotingPhase = true
-	print("Votação iniciada. Todos teletransportados para a sala de reunião.")
-	-- Aqui entraria a lógica de UI de contagem de votos
-	-- Após os votos:
-	-- local mostVotedPlayer = CalculateVotes()
-	-- GameManager.EliminatePlayer(mostVotedPlayer)
-	isVotingPhase = false
-end
-
--- ==========================================================
--- CONDIÇÕES DE VITÓRIA
--- ==========================================================
-
-function GameManager.CheckWinCondition()
-	local kirasAlive = 0
-	local innocentsAlive = 0
-	local shinigamisAlive = 0
-	
-	for _, player in ipairs(activePlayers) do
-		local r = playerRoles[player]
-		if r == GameManager.Roles.Kira or r == GameManager.Roles.XKira or r == GameManager.Roles.Misa then
-			kirasAlive = kirasAlive + 1
-		elseif r == GameManager.Roles.Shinigami then
-			shinigamisAlive = shinigamisAlive + 1
-		else
-			innocentsAlive = innocentsAlive + 1
-		end
-	end
-	
-	if currentMode == GameManager.GameModes.ShinigamisGrave then
-		if innocentsAlive == 0 then print("Shinigamis Venceram!") end
-	elseif currentMode == GameManager.GameModes.RemsGame then
-		if #activePlayers == 2 then
-			print("Restam 2 jogadores! Eles se tornam Shinigamis para a batalha final!")
-			-- Lógica de transformar ambos em Shinigami
-		end
-	else
-		-- Modos padrão
-		if kirasAlive == 0 then
-			print("Inocentes Venceram! Nenhum Kira restante.")
-		elseif innocentsAlive == 0 then
-			print("Kira Venceu! Todos os inocentes foram eliminados.")
-		end
-	end
-end
-
-return GameManager
+print("Death Note Executor Hub Carregado! Pressione Right Shift para esconder/mostrar o menu.")
