@@ -1,217 +1,275 @@
--- Serviços necessários
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local player = Players.LocalPlayer
+-- ==========================================================
+-- DEATH NOTE: Sistema de Gerenciamento de Modos de Jogo
+-- Script Base para Servidor (ServerScriptService)
+-- ==========================================================
 
--- Criação da GUI Principal
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ModHubInterface"
-ScreenGui.ResetOnSpawn = false
+local GameManager = {}
 
--- Se estiver usando em um jogo comum, vai para o PlayerGui.
--- Se for um script de executor, mude para CoreGui.
-if game:GetService("RunService"):IsStudio() then
-    ScreenGui.Parent = player:WaitForChild("PlayerGui")
-else
-    -- Tentativa de proteção básica caso seja rodado via exploit
-    local success, err = pcall(function()
-        ScreenGui.Parent = CoreGui
-    end)
-    if not success then
-        ScreenGui.Parent = player:WaitForChild("PlayerGui")
-    end
+-- Enumeração dos Modos de Jogo disponíveis baseados na Wiki
+GameManager.GameModes = {
+	ShinigamisGrave = "Shinigami's Grave",
+	LsGame = "L's Game",
+	DeathNote = "Death Note",
+	DeathNoteHard = "Death Note (Hard)",
+	RemsGame = "Rem's Game",
+	NearsGame = "Near's Game",
+	MisasGame = "Misa's Game",
+	MellosGame = "Mello's Game",
+	XKira = "X-Kira",
+	RLGL = "Red Light Green Light"
+}
+
+-- Enumeração de Papéis (Roles)
+GameManager.Roles = {
+	Innocent = "Innocent",
+	Kira = "Kira",
+	L = "L",
+	Mello = "Mello",
+	Gelus = "Gelus",
+	Near = "Near",
+	Misa = "Misa",
+	Takada = "Takada",
+	XKira = "X-Kira",
+	Shinigami = "Shinigami",
+	Sinner = "Sinner"
+}
+
+-- Variáveis de Estado da Partida
+local currentMode = nil
+local activePlayers = {} -- Jogadores vivos
+local playerRoles = {} -- Tabela mapeando [Player] = Role
+local isVotingPhase = false
+
+-- ==========================================================
+-- FUNÇÕES DE UTILIDADE
+-- ==========================================================
+
+-- Retorna um jogador aleatório da lista e o remove da pool de seleção
+local function getRandomPlayer(pool)
+	if #pool == 0 then return nil end
+	local index = math.random(1, #pool)
+	local player = pool[index]
+	table.remove(pool, index)
+	return player
 end
 
--- Frame Principal (Janela Escura)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 450, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Parent = ScreenGui
+-- ==========================================================
+-- LÓGICA DE DISTRIBUIÇÃO DE PAPÉIS
+-- ==========================================================
 
--- Borda arredondada
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = MainFrame
+function GameManager.AssignRoles(mode, players)
+	playerRoles = {}
+	activePlayers = {}
+	
+	-- Copia os jogadores para a pool de sorteio
+	local pool = {}
+	for _, p in ipairs(players) do
+		table.insert(pool, p)
+		table.insert(activePlayers, p)
+	end
+	
+	if mode == GameManager.GameModes.LsGame then
+		-- L's Game: 1 L, 1 Gelus, 1 Mello, 2 Kiras, resto Innocent
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.L
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Gelus
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Mello
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Kira
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Kira
+		
+		-- O resto é inocente
+		for _, p in ipairs(pool) do
+			playerRoles[p] = GameManager.Roles.Innocent
+		end
 
--- Título do Hub
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Name = "TitleLabel"
-TitleLabel.Size = UDim2.new(1, 0, 0, 40)
-TitleLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-TitleLabel.Text = "  Mod Menu Hub"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextSize = 16
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Parent = MainFrame
-
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 8)
-TitleCorner.Parent = TitleLabel
-
--- Esconde as pontas inferiores do arredondamento do título para conectar com o corpo
-local TitleBlocker = Instance.new("Frame")
-TitleBlocker.Size = UDim2.new(1, 0, 0, 10)
-TitleBlocker.Position = UDim2.new(0, 0, 1, -10)
-TitleBlocker.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-TitleBlocker.BorderSizePixel = 0
-TitleBlocker.Parent = TitleLabel
-
--- Container da Lista de Mods
-local ScrollingFrame = Instance.new("ScrollingFrame")
-ScrollingFrame.Size = UDim2.new(1, -20, 1, -60)
-ScrollingFrame.Position = UDim2.new(0, 10, 0, 50)
-ScrollingFrame.BackgroundTransparency = 1
-ScrollingFrame.ScrollBarThickness = 4
-ScrollingFrame.Parent = MainFrame
-
--- Organizador automático em lista
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 10)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Parent = ScrollingFrame
-
--- ==========================================
--- FUNÇÃO CONSTRUTORA DE TOGGLES (MODS)
--- ==========================================
-local function CreateModToggle(name, defaultState, callback)
-    local ToggleFrame = Instance.new("Frame")
-    ToggleFrame.Size = UDim2.new(1, -10, 0, 40)
-    ToggleFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    ToggleFrame.Parent = ScrollingFrame
-    
-    local ToggleCorner = Instance.new("UICorner")
-    ToggleCorner.CornerRadius = UDim.new(0, 6)
-    ToggleCorner.Parent = ToggleFrame
-
-    local ToggleLabel = Instance.new("TextLabel")
-    ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    ToggleLabel.Position = UDim2.new(0, 10, 0, 0)
-    ToggleLabel.BackgroundTransparency = 1
-    ToggleLabel.Text = name
-    ToggleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    ToggleLabel.Font = Enum.Font.GothamSemibold
-    ToggleLabel.TextSize = 14
-    ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ToggleLabel.Parent = ToggleFrame
-
-    local ToggleButton = Instance.new("TextButton")
-    ToggleButton.Size = UDim2.new(0, 60, 0, 24)
-    ToggleButton.Position = UDim2.new(1, -75, 0.5, -12)
-    ToggleButton.BackgroundColor3 = defaultState and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
-    ToggleButton.Text = defaultState and "ON" or "OFF"
-    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleButton.Font = Enum.Font.GothamBold
-    ToggleButton.TextSize = 12
-    ToggleButton.Parent = ToggleFrame
-    
-    local ButtonCorner = Instance.new("UICorner")
-    ButtonCorner.CornerRadius = UDim.new(0, 4)
-    ButtonCorner.Parent = ToggleButton
-
-    local isOn = defaultState
-
-    -- Evento de Clique
-    ToggleButton.MouseButton1Click:Connect(function()
-        isOn = not isOn
-        
-        -- Animação simples de cor
-        ToggleButton.Text = isOn and "ON" or "OFF"
-        ToggleButton.BackgroundColor3 = isOn and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
-        
-        -- Executa a função associada ao Mod
-        callback(isOn)
-    end)
-    
-    -- Ajusta o tamanho do scroll de acordo com a quantidade de itens
-    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
+	elseif mode == GameManager.GameModes.ShinigamisGrave then
+		-- 2 Shinigamis, resto Sinners
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Shinigami
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Shinigami
+		for _, p in ipairs(pool) do
+			playerRoles[p] = GameManager.Roles.Sinner
+		end
+		
+	elseif mode == GameManager.GameModes.MellosGame then
+		-- Mello, Near, Kira, Takada, Innocent
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Mello
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Near
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Kira
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.Takada
+		for _, p in ipairs(pool) do
+			playerRoles[p] = GameManager.Roles.Innocent
+		end
+		
+	elseif mode == GameManager.GameModes.XKira then
+		-- 1 X-Kira, 0 a 2 Takadas dependendo do tamanho do servidor
+		playerRoles[getRandomPlayer(pool)] = GameManager.Roles.XKira
+		
+		local numTakadas = #players > 10 and 2 or 1
+		for i = 1, numTakadas do
+			local t = getRandomPlayer(pool)
+			if t then playerRoles[t] = GameManager.Roles.Takada end
+		end
+		
+		for _, p in ipairs(pool) do
+			playerRoles[p] = GameManager.Roles.Innocent
+		end
+	end
+	
+	-- (Outros modos seguem lógicas similares baseadas na Wiki)
+	print("Papéis distribuídos para o modo: " .. mode)
 end
 
--- ==========================================
--- ADICIONANDO OS MODS AO HUB
--- ==========================================
+-- ==========================================================
+-- MECÂNICAS ESPECÍFICAS DE AÇÕES DURANTE O ROUND
+-- ==========================================================
 
-CreateModToggle("Auto Farm", false, function(state)
-    if state then
-        print("Iniciando rotina de Auto Farm...")
-        -- Coloque seu código de loop/farm aqui
-    else
-        print("Auto Farm interrompido.")
-        -- Coloque o código para parar o loop aqui
-    end
-end)
-
-CreateModToggle("Kill Aura", false, function(state)
-    if state then
-        print("Kill Aura ativada!")
-        -- Coloque seu código de dano em área aqui
-    else
-        print("Kill Aura desativada.")
-    end
-end)
-
-CreateModToggle("ESP de Minérios", false, function(state)
-    if state then
-        print("ESP de Minérios ligado. Criando Highlights...")
-        -- Exemplo: Procure por objetos na Workspace e adicione um 'Highlight'
-    else
-        print("ESP de Minérios desligado. Limpando...")
-        -- Remova os Highlights criados
-    end
-end)
-
--- ==========================================
--- SISTEMA DE ARRASTAR (DRAG) CUSTOMIZADO
--- ==========================================
-local dragging = false
-local dragInput, dragStart, startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    -- Movimenta o frame principal de forma suave
-    game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.05), {
-        Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    }):Play()
+-- Lógica para o Gelus proteger alguém (L's Game)
+function GameManager.GelusProtect(gelusPlayer, targetPlayer)
+	if playerRoles[gelusPlayer] == GameManager.Roles.Gelus then
+		targetPlayer:SetAttribute("ProtectedByGelus", true)
+		print(targetPlayer.Name .. " foi protegido por Gelus!")
+	end
 end
 
-TitleLabel.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
+-- Lógica para Kira matar (Geral)
+function GameManager.KiraAttemptKill(kiraPlayer, targetPlayer)
+	local role = playerRoles[kiraPlayer]
+	if role == GameManager.Roles.Kira or role == GameManager.Roles.XKira or role == GameManager.Roles.Misa then
+		
+		-- Verifica se o jogador está protegido (Gelus) ou confinado (Mello)
+		if targetPlayer:GetAttribute("ProtectedByGelus") then
+			print("Assassinato falhou: Jogador protegido.")
+			targetPlayer:SetAttribute("ProtectedByGelus", false) -- Remove proteção após o uso
+			return false
+		end
+		
+		if kiraPlayer:GetAttribute("ConfinedByMello") then
+			print("Assassinato cancelado: Kira está confinado por Mello.")
+			return false
+		end
+		
+		-- Executa a morte
+		GameManager.EliminatePlayer(targetPlayer)
+		return true
+	end
+end
 
-TitleLabel.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
+-- Lógica para o Mello Confinar / Atirar
+function GameManager.MelloAction(melloPlayer, targetPlayer, actionType)
+	if playerRoles[melloPlayer] ~= GameManager.Roles.Mello then return end
+	
+	if actionType == "Confine" and not melloPlayer:GetAttribute("HasActed") then
+		targetPlayer:SetAttribute("ConfinedByMello", true)
+		melloPlayer:SetAttribute("ConfinedTarget", targetPlayer.Name)
+		melloPlayer:SetAttribute("HasActed", true)
+		print(targetPlayer.Name .. " foi confinado por Mello.")
+		
+	elseif actionType == "Shoot" then
+		-- Mello só pode atirar se o alvo for Kira e estiver confinado (segundo a wiki)
+		local isTargetKira = (playerRoles[targetPlayer] == GameManager.Roles.Kira)
+		
+		if isTargetKira then
+			print("Mello atirou e matou Kira!")
+			GameManager.EliminatePlayer(targetPlayer)
+		else
+			print("Mello atirou na pessoa errada. Ação desperdiçada.")
+		end
+		melloPlayer:SetAttribute("HasActed", true)
+	end
+end
 
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
+-- Lógica de Scanear IDs (L e Near)
+function GameManager.ScanID(detectivePlayer, targetPlayer)
+	local role = playerRoles[detectivePlayer]
+	if role == GameManager.Roles.L or role == GameManager.Roles.Near then
+		local targetRole = playerRoles[targetPlayer]
+		
+		-- Tratamento do Perk "Memory Loss"
+		if targetPlayer:GetAttribute("HasMemoryLossPerk") then
+			return GameManager.Roles.Innocent
+		end
+		
+		-- Takada aparece como Kira para L/Near no modo X-Kira
+		if targetRole == GameManager.Roles.Takada then
+			return GameManager.Roles.Kira
+		end
+		
+		return targetRole
+	end
+end
 
--- ==========================================
--- TECLA PARA ESCONDER/MOSTRAR MENU (INSERT)
--- ==========================================
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.Insert then
-        MainFrame.Visible = not MainFrame.Visible
-    end
-end)
+-- ==========================================================
+-- SISTEMA DE ELIMINAÇÃO E FASE DE VOTAÇÃO
+-- ==========================================================
 
-print("Hub carregado com sucesso. Pressione 'Insert' para abrir/fechar.")
+function GameManager.EliminatePlayer(player)
+	-- Lógica de substituição da Takada
+	local role = playerRoles[player]
+	if role == GameManager.Roles.Kira and currentMode == GameManager.GameModes.MellosGame then
+		-- Procura se há uma Takada viva para assumir
+		for p, r in pairs(playerRoles) do
+			if r == GameManager.Roles.Takada and table.find(activePlayers, p) then
+				playerRoles[p] = GameManager.Roles.Kira
+				print("Takada assumiu o papel de Kira!")
+				break
+			end
+		end
+	end
+	
+	-- Remove dos ativos
+	local index = table.find(activePlayers, player)
+	if index then
+		table.remove(activePlayers, index)
+	end
+	print(player.Name .. " foi eliminado.")
+	
+	GameManager.CheckWinCondition()
+end
+
+function GameManager.StartVotingPhase()
+	isVotingPhase = true
+	print("Votação iniciada. Todos teletransportados para a sala de reunião.")
+	-- Aqui entraria a lógica de UI de contagem de votos
+	-- Após os votos:
+	-- local mostVotedPlayer = CalculateVotes()
+	-- GameManager.EliminatePlayer(mostVotedPlayer)
+	isVotingPhase = false
+end
+
+-- ==========================================================
+-- CONDIÇÕES DE VITÓRIA
+-- ==========================================================
+
+function GameManager.CheckWinCondition()
+	local kirasAlive = 0
+	local innocentsAlive = 0
+	local shinigamisAlive = 0
+	
+	for _, player in ipairs(activePlayers) do
+		local r = playerRoles[player]
+		if r == GameManager.Roles.Kira or r == GameManager.Roles.XKira or r == GameManager.Roles.Misa then
+			kirasAlive = kirasAlive + 1
+		elseif r == GameManager.Roles.Shinigami then
+			shinigamisAlive = shinigamisAlive + 1
+		else
+			innocentsAlive = innocentsAlive + 1
+		end
+	end
+	
+	if currentMode == GameManager.GameModes.ShinigamisGrave then
+		if innocentsAlive == 0 then print("Shinigamis Venceram!") end
+	elseif currentMode == GameManager.GameModes.RemsGame then
+		if #activePlayers == 2 then
+			print("Restam 2 jogadores! Eles se tornam Shinigamis para a batalha final!")
+			-- Lógica de transformar ambos em Shinigami
+		end
+	else
+		-- Modos padrão
+		if kirasAlive == 0 then
+			print("Inocentes Venceram! Nenhum Kira restante.")
+		elseif innocentsAlive == 0 then
+			print("Kira Venceu! Todos os inocentes foram eliminados.")
+		end
+	end
+end
+
+return GameManager
