@@ -249,6 +249,8 @@ local function toggleFreecam()
         
         if player.Character then
             camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
+            -- Restaura o foco para a posição do personagem
+            camera.Focus = player.Character:GetPivot()
         end
         clearESP()
     end
@@ -264,8 +266,8 @@ RunService.RenderStepped:Connect(function(deltaTime)
         -- Calcula a nova rotação da câmera (Arraste da tela)
         local camRotation = CFrame.Angles(0, math.rad(cameraAngleX), 0) * CFrame.Angles(math.rad(cameraAngleY), 0, 0)
         
-        -- Combina Frente/Trás/Lados do analógico com Subir/Descer dos botões da UI
-        local movement = Vector3.new(moveVector.X, verticalMove, -moveVector.Z)
+        -- Correção: Removido o sinal negativo do moveVector.Z para alinhar com a direção da câmera corretamente
+        local movement = Vector3.new(moveVector.X, verticalMove, moveVector.Z)
         
         if movement.Magnitude > 0 then
             movement = movement.Unit
@@ -274,6 +276,9 @@ RunService.RenderStepped:Connect(function(deltaTime)
         -- Aplica a velocidade e a rotação
         local newCFrame = camera.CFrame * CFrame.new(movement * speed * deltaTime)
         camera.CFrame = CFrame.new(newCFrame.Position) * camRotation
+        
+        -- Atualiza o foco da câmera para renderizar os gráficos e iluminação em volta do Drone
+        camera.Focus = camera.CFrame
         
         -- Atualiza o ESP de jogadores
         updateESP()
