@@ -1,5 +1,5 @@
 -- ==========================================
--- CONSTRUTOR AVANÇADO V3 (EXECUTOR / LOCAL)
+-- CONSTRUTOR AVANÇADO V3.1 (EXECUTOR / LOCAL)
 -- Criar (Preview), Mover, Esticar por Alças, Duplicar, Cores, Desfazer e Refazer
 -- ==========================================
 
@@ -83,7 +83,7 @@ topBarFix.BorderSizePixel = 0
 topBarFix.Parent = topBar
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -110, 1, 0)
+title.Size = UDim2.new(1, -70, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
 title.Text = "🛠️ Construtor"
@@ -92,19 +92,6 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = topBar
-
--- Botão OK (Confirmação de Bloco Fantasma) - Fica invisível por padrão
-local btnConfirmOK = Instance.new("TextButton")
-btnConfirmOK.Size = UDim2.new(0, 45, 0, 26)
-btnConfirmOK.Position = UDim2.new(1, -115, 0, 4)
-btnConfirmOK.BackgroundColor3 = Color3.fromRGB(50, 200, 100)
-btnConfirmOK.Text = "OK"
-btnConfirmOK.TextColor3 = Color3.fromRGB(255, 255, 255)
-btnConfirmOK.Font = Enum.Font.GothamBold
-btnConfirmOK.TextSize = 12
-btnConfirmOK.Visible = false
-Instance.new("UICorner", btnConfirmOK).CornerRadius = UDim.new(0, 4)
-btnConfirmOK.Parent = topBar
 
 -- Botão Minimizar
 local btnMinimize = Instance.new("TextButton")
@@ -174,6 +161,11 @@ end
 
 -- Configuração dos Botões
 local btnSpawn = criarBotao("➕ Criar Bloco (Fantasma)", Color3.fromRGB(0, 150, 200))
+
+-- Botão OK (Confirmação de Bloco Fantasma) - Fica dentro da lista e invisível por padrão
+local btnConfirmOK = criarBotao("✅ Confirmar Posição [OK]", Color3.fromRGB(50, 200, 100))
+btnConfirmOK.Visible = false
+
 local btnMove = criarBotao("🖱️ Mover (Clique no Mapa)", Color3.fromRGB(200, 150, 0))
 local btnDuplicate = criarBotao("📑 Duplicar", Color3.fromRGB(50, 100, 200))
 local btnStretch = criarBotao("↕️ Esticar (+ Global)", Color3.fromRGB(200, 100, 50))
@@ -199,7 +191,7 @@ highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
 -- Criação do Objeto de Alças nativo do Roblox
 local handles = Instance.new("SelectionHandles")
 handles.Color3 = Color3.fromRGB(255, 255, 0)
-handles.Style = Enum.SelectionHandlesStyle.Resize -- Estilo de esferas para esticar
+handles.Style = Enum.SelectionHandlesStyle.Resize
 handles.Parent = targetGui
 
 local tamanhoInicial, cframeInicial
@@ -211,10 +203,7 @@ end)
 
 handles.MouseDrag:Connect(function(normal, distance)
     if not selectedPart then return end
-    -- Distância em múltiplos de 2 studs para manter o encaixe perfeito
     local snapDistance = math.round(distance / 2) * 2
-    
-    -- Calcula o novo tamanho e ajusta o CFrame para expandir apenas daquele lado da esfera
     local axis = Vector3.FromNormalId(normal)
     local novoTamanho = tamanhoInicial + (Vector3.new(math.abs(axis.X), math.abs(axis.Y), math.abs(axis.Z)) * snapDistance)
     
@@ -226,7 +215,6 @@ end)
 
 handles.MouseButton1Up:Connect(function(normal)
     if not selectedPart then return end
-    -- Registra a alteração de tamanho feita pelas esferas no histórico
     registrarAcao("Transform", selectedPart, {Size = tamanhoInicial, CFrame = cframeInicial}, {Size = selectedPart.Size, CFrame = selectedPart.CFrame})
 end)
 
@@ -238,7 +226,6 @@ local ghostPart = nil
 local ghostConnection = nil
 
 local function selecionar(part)
-    -- Limpa estado fantasma se selecionar outra coisa
     if ghostPart then
         ghostPart:Destroy()
         ghostPart = nil
@@ -250,11 +237,11 @@ local function selecionar(part)
     if part then
         selectionText.Text = "Selecionado: Bloco"
         highlight.Parent = part
-        handles.Adornee = part -- Ativa as esferas direcionais no bloco
+        handles.Adornee = part
     else
         selectionText.Text = "Selecionado: Nenhum"
         highlight.Parent = nil
-        handles.Adornee = nil -- Esconde as esferas
+        handles.Adornee = nil
         isMovingMode = false
         btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
         btnMove.Text = "🖱️ Mover (Clique no Mapa)"
@@ -297,7 +284,6 @@ end)
 -- 6. AÇÕES DOS BOTÕES DA INTERFACE
 -- ==========================================
 
--- BARRA SUPERIOR: FECHAR E MINIMIZAR
 btnClose.MouseButton1Click:Connect(function()
     if ghostPart then ghostPart:Destroy() end
     handles:Destroy()
@@ -320,19 +306,18 @@ end)
 
 -- CRIAR BLOCO FANTASMA (PREVIEW)
 btnSpawn.MouseButton1Click:Connect(function()
-    selecionar(nil) -- Limpa seleções anteriores
+    selecionar(nil)
 
     ghostPart = Instance.new("Part")
     ghostPart.Size = Vector3.new(4, 4, 4)
-    ghostPart.Transparency = 0.6
-    ghostPart.Color = Color3.fromRGB(0, 255, 255)
+    ghostPart.Transparency = 0.4 -- Alterado para 0.4 (Fica um pouco visível, mais nítido)
+    ghostPart.Color = Color3.fromRGB(0, 255, 100) -- Cor verde neon marcante
     ghostPart.Anchored = true
     ghostPart.CanCollide = false
     ghostPart.Parent = workspace
 
-    btnConfirmOK.Visible = true -- Mostra o botão OK no topo
+    btnConfirmOK.Visible = true -- Mostra o botão OK dentro da interface
 
-    -- Faz o bloco fantasma seguir perfeitamente o mouse/arrasto na tela
     ghostConnection = runService.RenderStepped:Connect(function()
         if ghostPart then
             ghostPart.Position = mouse.Hit.Position + Vector3.new(0, ghostPart.Size.Y / 2, 0)
@@ -340,12 +325,11 @@ btnSpawn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- CONFIRMAR CRIAÇÃO DO BLOCO (BOTÃO OK)
+-- CONFIRMAR CRIAÇÃO DO BLOCO (BOTÃO OK INTERNO)
 btnConfirmOK.MouseButton1Click:Connect(function()
     if ghostPart then
         if ghostConnection then ghostConnection:Disconnect() end
         
-        -- Transforma o fantasma em bloco físico real
         local blocoReal = ghostPart
         ghostPart = nil
         blocoReal.Transparency = 0
@@ -353,7 +337,7 @@ btnConfirmOK.MouseButton1Click:Connect(function()
         blocoReal.BrickColor = BrickColor.Random()
         blocoReal.Parent = blocksFolder
         
-        btnConfirmOK.Visible = false
+        btnConfirmOK.Visible = false -- Esconde o botão após confirmar
         registrarAcao("Criar", blocoReal, nil, nil)
         selecionar(blocoReal)
     end
