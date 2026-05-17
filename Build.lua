@@ -1,6 +1,6 @@
 -- ==========================================
--- CONSTRUTOR AVANÇADO (EXECUTOR / LOCAL)
--- Criação, Edição, Desfazer e Refazer Ações
+-- CONSTRUTOR AVANÇADO + BARRA SUPERIOR
+-- Criação, Edição, Desfazer, Refazer, Minimizar e Fechar
 -- ==========================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -53,33 +53,88 @@ screenGui.Name = "BuilderGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = targetGui
 
-local frame = Instance.new("ScrollingFrame")
-frame.Size = UDim2.new(0, 220, 0, 350)
-frame.Position = UDim2.new(0.05, 0, 0.2, 0)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
-frame.ScrollBarThickness = 4
-frame.Parent = screenGui
+-- Container Principal (Onde a mágica de mover acontece)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 220, 0, 390)
+mainFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true -- Permite arrastar toda a interface
+mainFrame.Parent = screenGui
 
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
 
-local layout = Instance.new("UIListLayout")
-layout.Parent = frame
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 5)
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+-- Barra Superior (Top Bar)
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 35)
+topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+topBar.BorderSizePixel = 0
+topBar.Parent = mainFrame
 
--- Título
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 8)
+
+-- Corrigindo os cantos inferiores da TopBar para mesclar com o MainFrame
+local topBarFix = Instance.new("Frame")
+topBarFix.Size = UDim2.new(1, 0, 0, 10)
+topBarFix.Position = UDim2.new(0, 0, 1, -10)
+topBarFix.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+topBarFix.BorderSizePixel = 0
+topBarFix.Parent = topBar
+
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Size = UDim2.new(1, -70, 1, 0)
+title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
 title.Text = "🛠️ Construtor"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 16
-title.Parent = frame
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = topBar
+
+-- Botão Minimizar
+local btnMinimize = Instance.new("TextButton")
+btnMinimize.Size = UDim2.new(0, 30, 0, 30)
+btnMinimize.Position = UDim2.new(1, -65, 0, 2)
+btnMinimize.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
+btnMinimize.Text = "-"
+btnMinimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnMinimize.Font = Enum.Font.GothamBold
+btnMinimize.TextSize = 18
+Instance.new("UICorner", btnMinimize).CornerRadius = UDim.new(0, 4)
+btnMinimize.Parent = topBar
+
+-- Botão Fechar
+local btnClose = Instance.new("TextButton")
+btnClose.Size = UDim2.new(0, 30, 0, 30)
+btnClose.Position = UDim2.new(1, -32, 0, 2)
+btnClose.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+btnClose.Text = "X"
+btnClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnClose.Font = Enum.Font.GothamBold
+btnClose.TextSize = 14
+Instance.new("UICorner", btnClose).CornerRadius = UDim.new(0, 4)
+btnClose.Parent = topBar
+
+-- Área de Conteúdo (Onde ficam as ferramentas, com rolagem)
+local contentFrame = Instance.new("ScrollingFrame")
+contentFrame.Size = UDim2.new(1, 0, 1, -35)
+contentFrame.Position = UDim2.new(0, 0, 0, 35)
+contentFrame.BackgroundTransparency = 1
+contentFrame.BorderSizePixel = 0
+contentFrame.ScrollBarThickness = 4
+contentFrame.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = contentFrame
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 5)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local espacoTopo = Instance.new("Frame", contentFrame)
+espacoTopo.Size = UDim2.new(1, 0, 0, 5)
+espacoTopo.BackgroundTransparency = 1
 
 local selectionText = Instance.new("TextLabel")
 selectionText.Size = UDim2.new(0.9, 0, 0, 20)
@@ -88,7 +143,7 @@ selectionText.Text = "Selecionado: Nenhum"
 selectionText.TextColor3 = Color3.fromRGB(150, 255, 150)
 selectionText.Font = Enum.Font.Gotham
 selectionText.TextSize = 12
-selectionText.Parent = frame
+selectionText.Parent = contentFrame
 
 -- Função para criar botões padronizados
 local function criarBotao(nome, cor)
@@ -100,7 +155,7 @@ local function criarBotao(nome, cor)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 12
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    btn.Parent = frame
+    btn.Parent = contentFrame
     return btn
 end
 
@@ -111,7 +166,7 @@ local btnShrink = criarBotao("↔️ Encolher (Diminuir)", Color3.fromRGB(200, 1
 local btnColor = criarBotao("🎨 Mudar Cor", Color3.fromRGB(150, 50, 200))
 local btnDelete = criarBotao("🗑️ Deletar", Color3.fromRGB(200, 50, 50))
 
-local espaco = Instance.new("Frame", frame)
+local espaco = Instance.new("Frame", contentFrame)
 espaco.Size = UDim2.new(1, 0, 0, 10)
 espaco.BackgroundTransparency = 1
 
@@ -119,7 +174,31 @@ local btnUndo = criarBotao("↩️ Desfazer", Color3.fromRGB(100, 100, 100))
 local btnRedo = criarBotao("↪️ Refazer", Color3.fromRGB(100, 100, 100))
 
 -- ==========================================
--- 3. LÓGICA DE SELEÇÃO E DESTAQUE
+-- 3. AÇÕES DA BARRA SUPERIOR (TOP BAR)
+-- ==========================================
+
+-- Fechar Interface
+btnClose.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+-- Minimizar / Maximizar Interface
+local minimizado = false
+btnMinimize.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    if minimizado then
+        contentFrame.Visible = false
+        mainFrame.Size = UDim2.new(0, 220, 0, 35) -- Encolhe para o tamanho da barra
+        btnMinimize.Text = "+"
+    else
+        contentFrame.Visible = true
+        mainFrame.Size = UDim2.new(0, 220, 0, 390) -- Restaura o tamanho original
+        btnMinimize.Text = "-"
+    end
+end)
+
+-- ==========================================
+-- 4. LÓGICA DE SELEÇÃO E DESTAQUE
 -- ==========================================
 local selectedPart = nil
 local highlight = Instance.new("Highlight")
@@ -145,7 +224,7 @@ mouse.Button1Down:Connect(function()
 end)
 
 -- ==========================================
--- 4. AÇÕES DAS FERRAMENTAS
+-- 5. AÇÕES DAS FERRAMENTAS
 -- ==========================================
 
 -- CRIAR BLOCO
@@ -156,8 +235,8 @@ btnSpawn.MouseButton1Click:Connect(function()
     local novoBloco = Instance.new("Part")
     novoBloco.Size = Vector3.new(4, 4, 4)
     novoBloco.Position = char.HumanoidRootPart.Position + (char.HumanoidRootPart.CFrame.LookVector * 10)
-    novoBloco.Anchored = true -- Fixado no ar para poder construir
-    novoBloco.CanCollide = true -- Com física para o jogador pisar
+    novoBloco.Anchored = true
+    novoBloco.CanCollide = true
     novoBloco.BrickColor = BrickColor.Random()
     novoBloco.Parent = blocksFolder
 
@@ -178,7 +257,7 @@ end)
 -- DELETAR
 btnDelete.MouseButton1Click:Connect(function()
     if not selectedPart then return end
-    selectedPart.Parent = nil -- Esconde em vez de Destroy para poder desfazer
+    selectedPart.Parent = nil
     registrarAcao("Deletar", selectedPart, nil, nil)
     selecionar(nil)
 end)
@@ -205,7 +284,6 @@ btnShrink.MouseButton1Click:Connect(function()
     if not selectedPart then return end
     local tamanhoAntigo = selectedPart.Size
     local novoTamanho = selectedPart.Size - Vector3.new(2, 2, 2)
-    -- Impede o bloco de ficar com tamanho zero ou negativo
     if novoTamanho.X > 0.5 and novoTamanho.Y > 0.5 and novoTamanho.Z > 0.5 then
         selectedPart.Size = novoTamanho
         registrarAcao("Tamanho", selectedPart, tamanhoAntigo, selectedPart.Size)
@@ -213,14 +291,13 @@ btnShrink.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 5. LÓGICA DO DESFAZER E REFAZER
+-- 6. LÓGICA DO DESFAZER E REFAZER
 -- ==========================================
 
 btnUndo.MouseButton1Click:Connect(function()
     if #undoStack == 0 then return end
-    
-    local acao = table.remove(undoStack, #undoStack) -- Pega a última ação
-    table.insert(redoStack, acao) -- Move para o refazer
+    local acao = table.remove(undoStack, #undoStack)
+    table.insert(redoStack, acao)
 
     if acao.tipo == "Criar" then
         acao.part.Parent = nil
@@ -236,9 +313,8 @@ end)
 
 btnRedo.MouseButton1Click:Connect(function()
     if #redoStack == 0 then return end
-    
-    local acao = table.remove(redoStack, #redoStack) -- Pega a última ação desfeita
-    table.insert(undoStack, acao) -- Devolve para o desfazer
+    local acao = table.remove(redoStack, #redoStack)
+    table.insert(undoStack, acao)
 
     if acao.tipo == "Criar" then
         acao.part.Parent = blocksFolder
