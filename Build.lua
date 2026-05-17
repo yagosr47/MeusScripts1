@@ -1,6 +1,6 @@
 -- ==========================================
--- CONSTRUTOR AVANÇADO + BARRA SUPERIOR
--- Criação, Edição, Desfazer, Refazer, Minimizar e Fechar
+-- CONSTRUTOR AVANÇADO + BARRA SUPERIOR + MOVER
+-- Criação, Edição, Mover, Desfazer, Refazer, Minimizar e Fechar
 -- ==========================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -55,7 +55,7 @@ screenGui.Parent = targetGui
 
 -- Container Principal (Onde a mágica de mover acontece)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 220, 0, 390)
+mainFrame.Size = UDim2.new(0, 220, 0, 430) -- Aumentei um pouco para caber o novo botão
 mainFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 mainFrame.BorderSizePixel = 0
@@ -159,7 +159,11 @@ local function criarBotao(nome, cor)
     return btn
 end
 
+-- ==========================================
+-- BOTÕES
+-- ==========================================
 local btnSpawn = criarBotao("➕ Criar Bloco", Color3.fromRGB(0, 150, 200))
+local btnMove = criarBotao("🖱️ Mover (Clique no Mapa)", Color3.fromRGB(200, 150, 0)) -- NOVO BOTÃO DE MOVER
 local btnDuplicate = criarBotao("📑 Duplicar", Color3.fromRGB(50, 100, 200))
 local btnStretch = criarBotao("↕️ Esticar (Aumentar)", Color3.fromRGB(200, 100, 50))
 local btnShrink = criarBotao("↔️ Encolher (Diminuir)", Color3.fromRGB(200, 150, 50))
@@ -192,7 +196,7 @@ btnMinimize.MouseButton1Click:Connect(function()
         btnMinimize.Text = "+"
     else
         contentFrame.Visible = true
-        mainFrame.Size = UDim2.new(0, 220, 0, 390) -- Restaura o tamanho original
+        mainFrame.Size = UDim2.new(0, 220, 0, 430) -- Restaura o tamanho original
         btnMinimize.Text = "-"
     end
 end)
@@ -204,6 +208,7 @@ local selectedPart = nil
 local highlight = Instance.new("Highlight")
 highlight.FillTransparency = 0.5
 highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+local isMovingMode = false -- Estado do novo modo de mover
 
 local function selecionar(part)
     selectedPart = part
@@ -213,19 +218,58 @@ local function selecionar(part)
     else
         selectionText.Text = "Selecionado: Nenhum"
         highlight.Parent = nil
+        
+        -- Desativa o modo mover se deselecionar a peça
+        isMovingMode = false
+        btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+        btnMove.Text = "🖱️ Mover (Clique no Mapa)"
     end
 end
 
--- Selecionar blocos ao clicar neles
+-- ==========================================
+-- 5. LÓGICA DE CLIQUE NO MOUSE (SELEÇÃO E MOVER)
+-- ==========================================
 mouse.Button1Down:Connect(function()
+    -- Se o modo Mover estiver ativado e tivermos um bloco selecionado
+    if isMovingMode and selectedPart then
+        local posicaoAntiga = selectedPart.Position
+        
+        -- Calcula a posição nova, subindo um pouco pra não entrar no chão (metade da altura do bloco)
+        local novaPosicao = mouse.Hit.Position + Vector3.new(0, selectedPart.Size.Y / 2, 0)
+        selectedPart.Position = novaPosicao
+        
+        -- Salva no Histórico para o Desfazer/Refazer
+        registrarAcao("Posicao", selectedPart, posicaoAntiga, novaPosicao)
+        
+        -- Desativa o modo Mover automaticamente após colocar o bloco
+        isMovingMode = false
+        btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+        btnMove.Text = "🖱️ Mover (Clique no Mapa)"
+        return -- Sai da função para não selecionar o chão sem querer
+    end
+
+    -- Sistema de Seleção Normal
     if mouse.Target and mouse.Target:IsDescendantOf(blocksFolder) then
         selecionar(mouse.Target)
     end
 end)
 
 -- ==========================================
--- 5. AÇÕES DAS FERRAMENTAS
+-- 6. AÇÕES DAS FERRAMENTAS
 -- ==========================================
+
+-- ATIVAR / DESATIVAR MODO DE MOVER
+btnMove.MouseButton1Click:Connect(function()
+    if not selectedPart then return end
+    isMovingMode = not isMovingMode
+    if isMovingMode then
+        btnMove.BackgroundColor3 = Color3.fromRGB(255, 200, 50) -- Fica amarelo para indicar foco
+        btnMove.Text = "📍 Clique num local!"
+    else
+        btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+        btnMove.Text = "🖱️ Mover (Clique no Mapa)"
+    end
+end)
 
 -- CRIAR BLOCO
 btnSpawn.MouseButton1Click:Connect(function()
@@ -291,7 +335,7 @@ btnShrink.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 6. LÓGICA DO DESFAZER E REFAZER
+-- 7. LÓGICA DO DESFAZER E REFAZER
 -- ==========================================
 
 btnUndo.MouseButton1Click:Connect(function()
@@ -308,6 +352,8 @@ btnUndo.MouseButton1Click:Connect(function()
         acao.part.Color = acao.oldData
     elseif acao.tipo == "Tamanho" then
         acao.part.Size = acao.oldData
+    elseif acao.tipo == "Posicao" then
+        acao.part.Position = acao.oldData -- Volta a posição anterior
     end
 end)
 
@@ -325,5 +371,7 @@ btnRedo.MouseButton1Click:Connect(function()
         acao.part.Color = acao.newData
     elseif acao.tipo == "Tamanho" then
         acao.part.Size = acao.newData
+    elseif acao.tipo == "Posicao" then
+        acao.part.Position = acao.newData -- Vai para a posição nova
     end
 end)
