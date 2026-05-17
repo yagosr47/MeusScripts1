@@ -1,11 +1,12 @@
 -- ==========================================
--- CONSTRUTOR AVANÇADO + BARRA SUPERIOR + MOVER
--- Criação, Edição, Mover, Desfazer, Refazer, Minimizar e Fechar
+-- CONSTRUTOR AVANÇADO V3 (EXECUTOR / LOCAL)
+-- Criar (Preview), Mover, Esticar por Alças, Duplicar, Cores, Desfazer e Refazer
 -- ==========================================
 
 local player = game:GetService("Players").LocalPlayer
 local mouse = player:GetMouse()
 local CoreGui = game:GetService("CoreGui")
+local runService = game:GetService("RunService")
 
 -- Garantir compatibilidade com executores de celular
 local targetGui
@@ -41,8 +42,8 @@ local function registrarAcao(tipo, part, oldData, newData)
         oldData = oldData,
         newData = newData
     })
-    redoStack = {} -- Limpa o refazer se uma nova ação for feita
-    if #undoStack > 50 then table.remove(undoStack, 1) end -- Limite de 50 ações
+    redoStack = {}
+    if #undoStack > 50 then table.remove(undoStack, 1) end
 end
 
 -- ==========================================
@@ -53,14 +54,14 @@ screenGui.Name = "BuilderGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = targetGui
 
--- Container Principal (Onde a mágica de mover acontece)
+-- Container Principal
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 220, 0, 430) -- Aumentei um pouco para caber o novo botão
+mainFrame.Size = UDim2.new(0, 220, 0, 430)
 mainFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
-mainFrame.Draggable = true -- Permite arrastar toda a interface
+mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
@@ -74,7 +75,6 @@ topBar.Parent = mainFrame
 
 Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 8)
 
--- Corrigindo os cantos inferiores da TopBar para mesclar com o MainFrame
 local topBarFix = Instance.new("Frame")
 topBarFix.Size = UDim2.new(1, 0, 0, 10)
 topBarFix.Position = UDim2.new(0, 0, 1, -10)
@@ -83,7 +83,7 @@ topBarFix.BorderSizePixel = 0
 topBarFix.Parent = topBar
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -70, 1, 0)
+title.Size = UDim2.new(1, -110, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
 title.Text = "🛠️ Construtor"
@@ -92,6 +92,19 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = topBar
+
+-- Botão OK (Confirmação de Bloco Fantasma) - Fica invisível por padrão
+local btnConfirmOK = Instance.new("TextButton")
+btnConfirmOK.Size = UDim2.new(0, 45, 0, 26)
+btnConfirmOK.Position = UDim2.new(1, -115, 0, 4)
+btnConfirmOK.BackgroundColor3 = Color3.fromRGB(50, 200, 100)
+btnConfirmOK.Text = "OK"
+btnConfirmOK.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnConfirmOK.Font = Enum.Font.GothamBold
+btnConfirmOK.TextSize = 12
+btnConfirmOK.Visible = false
+Instance.new("UICorner", btnConfirmOK).CornerRadius = UDim.new(0, 4)
+btnConfirmOK.Parent = topBar
 
 -- Botão Minimizar
 local btnMinimize = Instance.new("TextButton")
@@ -117,7 +130,7 @@ btnClose.TextSize = 14
 Instance.new("UICorner", btnClose).CornerRadius = UDim.new(0, 4)
 btnClose.Parent = topBar
 
--- Área de Conteúdo (Onde ficam as ferramentas, com rolagem)
+-- Área de Conteúdo
 local contentFrame = Instance.new("ScrollingFrame")
 contentFrame.Size = UDim2.new(1, 0, 1, -35)
 contentFrame.Position = UDim2.new(0, 0, 0, 35)
@@ -145,7 +158,7 @@ selectionText.Font = Enum.Font.Gotham
 selectionText.TextSize = 12
 selectionText.Parent = contentFrame
 
--- Função para criar botões padronizados
+-- Função auxiliar de botões
 local function criarBotao(nome, cor)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.9, 0, 0, 30)
@@ -159,14 +172,12 @@ local function criarBotao(nome, cor)
     return btn
 end
 
--- ==========================================
--- BOTÕES
--- ==========================================
-local btnSpawn = criarBotao("➕ Criar Bloco", Color3.fromRGB(0, 150, 200))
-local btnMove = criarBotao("🖱️ Mover (Clique no Mapa)", Color3.fromRGB(200, 150, 0)) -- NOVO BOTÃO DE MOVER
+-- Configuração dos Botões
+local btnSpawn = criarBotao("➕ Criar Bloco (Fantasma)", Color3.fromRGB(0, 150, 200))
+local btnMove = criarBotao("🖱️ Mover (Clique no Mapa)", Color3.fromRGB(200, 150, 0))
 local btnDuplicate = criarBotao("📑 Duplicar", Color3.fromRGB(50, 100, 200))
-local btnStretch = criarBotao("↕️ Esticar (Aumentar)", Color3.fromRGB(200, 100, 50))
-local btnShrink = criarBotao("↔️ Encolher (Diminuir)", Color3.fromRGB(200, 150, 50))
+local btnStretch = criarBotao("↕️ Esticar (+ Global)", Color3.fromRGB(200, 100, 50))
+local btnShrink = criarBotao("↔️ Encolher (- Global)", Color3.fromRGB(200, 150, 50))
 local btnColor = criarBotao("🎨 Mudar Cor", Color3.fromRGB(150, 50, 200))
 local btnDelete = criarBotao("🗑️ Deletar", Color3.fromRGB(200, 50, 50))
 
@@ -178,48 +189,72 @@ local btnUndo = criarBotao("↩️ Desfazer", Color3.fromRGB(100, 100, 100))
 local btnRedo = criarBotao("↪️ Refazer", Color3.fromRGB(100, 100, 100))
 
 -- ==========================================
--- 3. AÇÕES DA BARRA SUPERIOR (TOP BAR)
--- ==========================================
-
--- Fechar Interface
-btnClose.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
-end)
-
--- Minimizar / Maximizar Interface
-local minimizado = false
-btnMinimize.MouseButton1Click:Connect(function()
-    minimizado = not minimizado
-    if minimizado then
-        contentFrame.Visible = false
-        mainFrame.Size = UDim2.new(0, 220, 0, 35) -- Encolhe para o tamanho da barra
-        btnMinimize.Text = "+"
-    else
-        contentFrame.Visible = true
-        mainFrame.Size = UDim2.new(0, 220, 0, 430) -- Restaura o tamanho original
-        btnMinimize.Text = "-"
-    end
-end)
-
--- ==========================================
--- 4. LÓGICA DE SELEÇÃO E DESTAQUE
+-- 3. ALÇAS DE REDIMENSIONAMENTO (HANDLES DIRECONAIS)
 -- ==========================================
 local selectedPart = nil
 local highlight = Instance.new("Highlight")
 highlight.FillTransparency = 0.5
 highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-local isMovingMode = false -- Estado do novo modo de mover
+
+-- Criação do Objeto de Alças nativo do Roblox
+local handles = Instance.new("SelectionHandles")
+handles.Color3 = Color3.fromRGB(255, 255, 0)
+handles.Style = Enum.SelectionHandlesStyle.Resize -- Estilo de esferas para esticar
+handles.Parent = targetGui
+
+local tamanhoInicial, cframeInicial
+handles.MouseButton1Down:Connect(function(normal)
+    if not selectedPart then return end
+    tamanhoInicial = selectedPart.Size
+    cframeInicial = selectedPart.CFrame
+end)
+
+handles.MouseDrag:Connect(function(normal, distance)
+    if not selectedPart then return end
+    -- Distância em múltiplos de 2 studs para manter o encaixe perfeito
+    local snapDistance = math.round(distance / 2) * 2
+    
+    -- Calcula o novo tamanho e ajusta o CFrame para expandir apenas daquele lado da esfera
+    local axis = Vector3.FromNormalId(normal)
+    local novoTamanho = tamanhoInicial + (Vector3.new(math.abs(axis.X), math.abs(axis.Y), math.abs(axis.Z)) * snapDistance)
+    
+    if novoTamanho.X > 0.5 and novoTamanho.Y > 0.5 and novoTamanho.Z > 0.5 then
+        selectedPart.Size = novoTamanho
+        selectedPart.CFrame = cframeInicial + (selectedPart.CFrame:VectorToWorldSpace(axis) * (snapDistance / 2))
+    end
+end)
+
+handles.MouseButton1Up:Connect(function(normal)
+    if not selectedPart then return end
+    -- Registra a alteração de tamanho feita pelas esferas no histórico
+    registrarAcao("Transform", selectedPart, {Size = tamanhoInicial, CFrame = cframeInicial}, {Size = selectedPart.Size, CFrame = selectedPart.CFrame})
+end)
+
+-- ==========================================
+-- 4. CONTROLE DE SELEÇÃO E ESTADOS
+-- ==========================================
+local isMovingMode = false
+local ghostPart = nil
+local ghostConnection = nil
 
 local function selecionar(part)
+    -- Limpa estado fantasma se selecionar outra coisa
+    if ghostPart then
+        ghostPart:Destroy()
+        ghostPart = nil
+        if ghostConnection then ghostConnection:Disconnect() end
+        btnConfirmOK.Visible = false
+    end
+
     selectedPart = part
     if part then
         selectionText.Text = "Selecionado: Bloco"
         highlight.Parent = part
+        handles.Adornee = part -- Ativa as esferas direcionais no bloco
     else
         selectionText.Text = "Selecionado: Nenhum"
         highlight.Parent = nil
-        
-        -- Desativa o modo mover se deselecionar a peça
+        handles.Adornee = nil -- Esconde as esferas
         isMovingMode = false
         btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
         btnMove.Text = "🖱️ Mover (Clique no Mapa)"
@@ -227,65 +262,114 @@ local function selecionar(part)
 end
 
 -- ==========================================
--- 5. LÓGICA DE CLIQUE NO MOUSE (SELEÇÃO E MOVER)
+-- 5. LÓGICA DE INTERAÇÃO COM O MOUSE
 -- ==========================================
 mouse.Button1Down:Connect(function()
-    -- Se o modo Mover estiver ativado e tivermos um bloco selecionado
+    -- Se estiver no modo de Preview Criar Fantasma, fixa o local temporariamente esperando o OK
+    if ghostPart then
+        if ghostConnection then 
+            ghostConnection:Disconnect() 
+            ghostConnection = nil 
+        end
+        return
+    end
+
+    -- Modo Mover Ativo
     if isMovingMode and selectedPart then
         local posicaoAntiga = selectedPart.Position
-        
-        -- Calcula a posição nova, subindo um pouco pra não entrar no chão (metade da altura do bloco)
         local novaPosicao = mouse.Hit.Position + Vector3.new(0, selectedPart.Size.Y / 2, 0)
         selectedPart.Position = novaPosicao
-        
-        -- Salva no Histórico para o Desfazer/Refazer
         registrarAcao("Posicao", selectedPart, posicaoAntiga, novaPosicao)
         
-        -- Desativa o modo Mover automaticamente após colocar o bloco
         isMovingMode = false
         btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
         btnMove.Text = "🖱️ Mover (Clique no Mapa)"
-        return -- Sai da função para não selecionar o chão sem querer
+        return
     end
 
-    -- Sistema de Seleção Normal
+    -- Seleção Padrão
     if mouse.Target and mouse.Target:IsDescendantOf(blocksFolder) then
         selecionar(mouse.Target)
     end
 end)
 
 -- ==========================================
--- 6. AÇÕES DAS FERRAMENTAS
+-- 6. AÇÕES DOS BOTÕES DA INTERFACE
 -- ==========================================
 
--- ATIVAR / DESATIVAR MODO DE MOVER
+-- BARRA SUPERIOR: FECHAR E MINIMIZAR
+btnClose.MouseButton1Click:Connect(function()
+    if ghostPart then ghostPart:Destroy() end
+    handles:Destroy()
+    screenGui:Destroy()
+end)
+
+local minimizado = false
+btnMinimize.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    if minimizado then
+        contentFrame.Visible = false
+        mainFrame.Size = UDim2.new(0, 220, 0, 35)
+        btnMinimize.Text = "+"
+    else
+        contentFrame.Visible = true
+        mainFrame.Size = UDim2.new(0, 220, 0, 430)
+        btnMinimize.Text = "-"
+    end
+end)
+
+-- CRIAR BLOCO FANTASMA (PREVIEW)
+btnSpawn.MouseButton1Click:Connect(function()
+    selecionar(nil) -- Limpa seleções anteriores
+
+    ghostPart = Instance.new("Part")
+    ghostPart.Size = Vector3.new(4, 4, 4)
+    ghostPart.Transparency = 0.6
+    ghostPart.Color = Color3.fromRGB(0, 255, 255)
+    ghostPart.Anchored = true
+    ghostPart.CanCollide = false
+    ghostPart.Parent = workspace
+
+    btnConfirmOK.Visible = true -- Mostra o botão OK no topo
+
+    -- Faz o bloco fantasma seguir perfeitamente o mouse/arrasto na tela
+    ghostConnection = runService.RenderStepped:Connect(function()
+        if ghostPart then
+            ghostPart.Position = mouse.Hit.Position + Vector3.new(0, ghostPart.Size.Y / 2, 0)
+        end
+    end)
+end)
+
+-- CONFIRMAR CRIAÇÃO DO BLOCO (BOTÃO OK)
+btnConfirmOK.MouseButton1Click:Connect(function()
+    if ghostPart then
+        if ghostConnection then ghostConnection:Disconnect() end
+        
+        -- Transforma o fantasma em bloco físico real
+        local blocoReal = ghostPart
+        ghostPart = nil
+        blocoReal.Transparency = 0
+        blocoReal.CanCollide = true
+        blocoReal.BrickColor = BrickColor.Random()
+        blocoReal.Parent = blocksFolder
+        
+        btnConfirmOK.Visible = false
+        registrarAcao("Criar", blocoReal, nil, nil)
+        selecionar(blocoReal)
+    end
+end)
+
+-- ATIVAR MODO DE MOVER
 btnMove.MouseButton1Click:Connect(function()
     if not selectedPart then return end
     isMovingMode = not isMovingMode
     if isMovingMode then
-        btnMove.BackgroundColor3 = Color3.fromRGB(255, 200, 50) -- Fica amarelo para indicar foco
+        btnMove.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
         btnMove.Text = "📍 Clique num local!"
     else
         btnMove.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
         btnMove.Text = "🖱️ Mover (Clique no Mapa)"
     end
-end)
-
--- CRIAR BLOCO
-btnSpawn.MouseButton1Click:Connect(function()
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-
-    local novoBloco = Instance.new("Part")
-    novoBloco.Size = Vector3.new(4, 4, 4)
-    novoBloco.Position = char.HumanoidRootPart.Position + (char.HumanoidRootPart.CFrame.LookVector * 10)
-    novoBloco.Anchored = true
-    novoBloco.CanCollide = true
-    novoBloco.BrickColor = BrickColor.Random()
-    novoBloco.Parent = blocksFolder
-
-    registrarAcao("Criar", novoBloco, nil, nil)
-    selecionar(novoBloco)
 end)
 
 -- DUPLICAR
@@ -311,11 +395,10 @@ btnColor.MouseButton1Click:Connect(function()
     if not selectedPart then return end
     local corAntiga = selectedPart.Color
     selectedPart.BrickColor = BrickColor.Random()
-    local corNova = selectedPart.Color
-    registrarAcao("Cor", selectedPart, corAntiga, corNova)
+    registrarAcao("Cor", selectedPart, corAntiga, selectedPart.Color)
 end)
 
--- ESTICAR / AUMENTAR TAMANHO
+-- ESTICAR E ENCOLHER (GLOBAL CONTÍNUO)
 btnStretch.MouseButton1Click:Connect(function()
     if not selectedPart then return end
     local tamanhoAntigo = selectedPart.Size
@@ -323,7 +406,6 @@ btnStretch.MouseButton1Click:Connect(function()
     registrarAcao("Tamanho", selectedPart, tamanhoAntigo, selectedPart.Size)
 end)
 
--- ENCOLHER / DIMINUIR TAMANHO
 btnShrink.MouseButton1Click:Connect(function()
     if not selectedPart then return end
     local tamanhoAntigo = selectedPart.Size
@@ -337,7 +419,6 @@ end)
 -- ==========================================
 -- 7. LÓGICA DO DESFAZER E REFAZER
 -- ==========================================
-
 btnUndo.MouseButton1Click:Connect(function()
     if #undoStack == 0 then return end
     local acao = table.remove(undoStack, #undoStack)
@@ -353,7 +434,10 @@ btnUndo.MouseButton1Click:Connect(function()
     elseif acao.tipo == "Tamanho" then
         acao.part.Size = acao.oldData
     elseif acao.tipo == "Posicao" then
-        acao.part.Position = acao.oldData -- Volta a posição anterior
+        acao.part.Position = acao.oldData
+    elseif acao.tipo == "Transform" then
+        acao.part.Size = acao.oldData.Size
+        acao.part.CFrame = acao.oldData.CFrame
     end
 end)
 
@@ -372,6 +456,9 @@ btnRedo.MouseButton1Click:Connect(function()
     elseif acao.tipo == "Tamanho" then
         acao.part.Size = acao.newData
     elseif acao.tipo == "Posicao" then
-        acao.part.Position = acao.newData -- Vai para a posição nova
+        acao.part.Position = acao.newData
+    elseif acao.tipo == "Transform" then
+        acao.part.Size = acao.newData.Size
+        acao.part.CFrame = acao.newData.CFrame
     end
 end)
