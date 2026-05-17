@@ -61,9 +61,9 @@ screenGui.Name = "BuilderGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = targetGui
 
--- Container Principal
+-- Container Principal (Alargado para 260 para caber os botões OK e Cancelar)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 220, 0, 430)
+mainFrame.Size = UDim2.new(0, 260, 0, 430)
 mainFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 mainFrame.BorderSizePixel = 0
@@ -90,7 +90,7 @@ topBarFix.BorderSizePixel = 0
 topBarFix.Parent = topBar
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(0, 90, 1, 0)
+title.Size = UDim2.new(0, 70, 1, 0)
 title.Position = UDim2.new(0, 10, 0, 0)
 title.BackgroundTransparency = 1
 title.Text = "🛠️ Build"
@@ -100,18 +100,31 @@ title.TextSize = 14
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = topBar
 
--- BOTÃO CONFIRMAR CRIAÇÃO (OK) - Escondido por padrão
+-- BOTÃO CONFIRMAR CRIAÇÃO (OK)
 local btnConfirmSpawn = Instance.new("TextButton")
-btnConfirmSpawn.Size = UDim2.new(0, 50, 0, 25)
-btnConfirmSpawn.Position = UDim2.new(0, 90, 0, 5)
+btnConfirmSpawn.Size = UDim2.new(0, 45, 0, 25)
+btnConfirmSpawn.Position = UDim2.new(0, 80, 0, 5)
 btnConfirmSpawn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-btnConfirmSpawn.Text = "✔️ OK"
+btnConfirmSpawn.Text = "✔️"
 btnConfirmSpawn.TextColor3 = Color3.fromRGB(255, 255, 255)
 btnConfirmSpawn.Font = Enum.Font.GothamBold
-btnConfirmSpawn.TextSize = 12
+btnConfirmSpawn.TextSize = 14
 btnConfirmSpawn.Visible = false
 Instance.new("UICorner", btnConfirmSpawn).CornerRadius = UDim.new(0, 4)
 btnConfirmSpawn.Parent = topBar
+
+-- BOTÃO CANCELAR CRIAÇÃO
+local btnCancelSpawn = Instance.new("TextButton")
+btnCancelSpawn.Size = UDim2.new(0, 45, 0, 25)
+btnCancelSpawn.Position = UDim2.new(0, 130, 0, 5)
+btnCancelSpawn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+btnCancelSpawn.Text = "❌"
+btnCancelSpawn.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnCancelSpawn.Font = Enum.Font.GothamBold
+btnCancelSpawn.TextSize = 14
+btnCancelSpawn.Visible = false
+Instance.new("UICorner", btnCancelSpawn).CornerRadius = UDim.new(0, 4)
+btnCancelSpawn.Parent = topBar
 
 -- Botão Minimizar
 local btnMinimize = Instance.new("TextButton")
@@ -195,9 +208,21 @@ local btnUndo = criarBotao("↩️ Desfazer", Color3.fromRGB(100, 100, 100))
 local btnRedo = criarBotao("↪️ Refazer", Color3.fromRGB(100, 100, 100))
 
 -- ==========================================
+-- VARIÁVEIS DO BLOCO FANTASMA
+-- ==========================================
+local ghostBlock = nil
+local draggingGhost = false
+
+-- ==========================================
 -- 3. AÇÕES DA BARRA SUPERIOR
 -- ==========================================
 btnClose.MouseButton1Click:Connect(function()
+    -- Ao fechar, se houver um bloco fantasma solto, ele é deletado
+    if ghostBlock then
+        ghostBlock:Destroy()
+        ghostBlock = nil
+    end
+    
     handlesFolder:ClearAllChildren()
     screenGui:Destroy()
 end)
@@ -207,11 +232,11 @@ btnMinimize.MouseButton1Click:Connect(function()
     minimizado = not minimizado
     if minimizado then
         contentFrame.Visible = false
-        mainFrame.Size = UDim2.new(0, 220, 0, 35)
+        mainFrame.Size = UDim2.new(0, 260, 0, 35)
         btnMinimize.Text = "+"
     else
         contentFrame.Visible = true
-        mainFrame.Size = UDim2.new(0, 220, 0, 430)
+        mainFrame.Size = UDim2.new(0, 260, 0, 430)
         btnMinimize.Text = "-"
     end
 end)
@@ -224,7 +249,6 @@ local function updateHandlesPositions(part)
     for _, handle in ipairs(handlesFolder:GetChildren()) do
         local axis = Vector3.new(handle:GetAttribute("AxisX"), handle:GetAttribute("AxisY"), handle:GetAttribute("AxisZ"))
         local absAxis = Vector3.new(math.abs(axis.X), math.abs(axis.Y), math.abs(axis.Z))
-        -- Posiciona a bola exatamente no centro de cada face selecionada, um pouco pra fora
         handle.Position = part.Position + (axis * ((part.Size * absAxis) / 2 + Vector3.new(0.5, 0.5, 0.5)))
     end
 end
@@ -290,10 +314,6 @@ end
 -- ==========================================
 -- 6. LÓGICA DO MOUSE (CLICAR, MOVER E ARRASTAR BOLAS)
 -- ==========================================
-local ghostBlock = nil
-local draggingGhost = false
-
--- Variáveis para arrastar as bolas
 local draggingHandleMode = false
 local dragHandle = nil
 local dragStartSize = nil
@@ -352,17 +372,16 @@ mouse.Move:Connect(function()
         
         local currentMousePos = mouse.Hit.Position
         local deltaPos = currentMousePos - dragStartMousePos
-        local deltaMove = deltaPos:Dot(axis) * 2 -- Multiplica por 2 pra esticar nas duas direções do centro
+        local deltaMove = deltaPos:Dot(axis) * 2
         
         local newSize = dragStartSize + (absAxis * deltaMove)
         
-        -- Impede o tamanho de ficar menor que 0.5
         if newSize.X < 0.5 then newSize = Vector3.new(0.5, newSize.Y, newSize.Z) deltaMove = (0.5 - dragStartSize.X) end
         if newSize.Y < 0.5 then newSize = Vector3.new(newSize.X, 0.5, newSize.Z) deltaMove = (0.5 - dragStartSize.Y) end
         if newSize.Z < 0.5 then newSize = Vector3.new(newSize.X, newSize.Y, 0.5) deltaMove = (0.5 - dragStartSize.Z) end
 
         selectedPart.Size = newSize
-        selectedPart.CFrame = dragStartCFrame * CFrame.new(axis * (deltaMove / 4)) -- Desloca o centro
+        selectedPart.CFrame = dragStartCFrame * CFrame.new(axis * (deltaMove / 4))
         updateHandlesPositions(selectedPart)
     end
 end)
@@ -402,9 +421,21 @@ btnSpawn.MouseButton1Click:Connect(function()
     end
 
     btnConfirmSpawn.Visible = true
+    btnCancelSpawn.Visible = true
     selecionar(nil) -- Tira a seleção de outros blocos enquanto cria
 end)
 
+-- CANCELAR BLOCO FANTASMA
+btnCancelSpawn.MouseButton1Click:Connect(function()
+    if ghostBlock then
+        ghostBlock:Destroy()
+        ghostBlock = nil
+    end
+    btnConfirmSpawn.Visible = false
+    btnCancelSpawn.Visible = false
+end)
+
+-- CONFIRMAR BLOCO FANTASMA
 btnConfirmSpawn.MouseButton1Click:Connect(function()
     if not ghostBlock then return end
 
@@ -416,7 +447,9 @@ btnConfirmSpawn.MouseButton1Click:Connect(function()
     
     local novoBloco = ghostBlock
     ghostBlock = nil
+    
     btnConfirmSpawn.Visible = false
+    btnCancelSpawn.Visible = false
 
     registrarAcao("Criar", novoBloco, nil, nil)
     selecionar(novoBloco)
