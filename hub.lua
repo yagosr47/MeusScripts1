@@ -277,27 +277,75 @@ end)
 btnAimbotMode.MouseButton1Click:Connect(function() aimbotModoMouse = not aimbotModoMouse; btnAimbotMode.Text = aimbotModoMouse and "Modo Aimbot: Mais Próximo da Mira" or "Modo Aimbot: Mais Próximo do Personagem" end)
 
 local function pegarInimigoMaisProximo()
-    local alvoMaisProximo = nil; local menorDistancia = math.huge; local camera = workspace.CurrentCamera
+    local alvoVisivelMaisProximo = nil
+    local alvoOcultoMaisProximo = nil
+    local menorDistanciaVisivel = math.huge
+    local menorDistanciaOculta = math.huge
+    local camera = workspace.CurrentCamera
     local meuHrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+
+    -- Configuração do Raycast para ignorar o seu próprio personagem e não bloquear a visão
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    if player.Character then
+        raycastParams.FilterDescendantsInstances = {player.Character}
+    end
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            -- Ignora aliados do mesmo time
             if player.Team ~= nil and p.Team ~= nil and player.Team == p.Team then continue end
+
+            local headAlvo = p.Character.Head
+            local distanciaAtual = math.huge
+            local naTela = false
+
+            -- Calcula a distância baseada na configuração atual do Aimbot (Mouse ou Personagem)
             if aimbotModoMouse then
-                local posTela, naTela = camera:WorldToViewportPoint(p.Character.Head.Position)
-                if naTela then
+                local posTela, estaNaTela = camera:WorldToViewportPoint(headAlvo.Position)
+                if estaNaTela then
                     local centroTela = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
-                    local distancia = (Vector2.new(posTela.X, posTela.Y) - centroTela).Magnitude
-                    if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
+                    distanciaAtual = (Vector2.new(posTela.X, posTela.Y) - centroTela).Magnitude
+                    naTela = true
                 end
             else
                 if meuHrp and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local distancia = (p.Character.HumanoidRootPart.Position - meuHrp.Position).Magnitude
-                    if distancia < menorDistancia then menorDistancia = distancia; alvoMaisProximo = p.Character.Head end
+                    distanciaAtual = (p.Character.HumanoidRootPart.Position - meuHrp.Position).Magnitude
+                    naTela = true
+                end
+            end
+
+            -- Se o alvo for válido para cálculo, checa a visibilidade
+            if naTela then
+                -- Lança o Raycast da câmera até a cabeça do alvo
+                local direcao = headAlvo.Position - camera.CFrame.Position
+                local raycastResult = workspace:Raycast(camera.CFrame.Position, direcao, raycastParams)
+
+                local estaVisivel = false
+                
+                -- Se o Raycast encostou no personagem alvo, significa que não tem parede na frente
+                if raycastResult and raycastResult.Instance and raycastResult.Instance:IsDescendantOf(p.Character) then
+                    estaVisivel = true
+                end
+
+                -- Atualiza os alvos separando por visibilidade
+                if estaVisivel then
+                    if distanciaAtual < menorDistanciaVisivel then
+                        menorDistanciaVisivel = distanciaAtual
+                        alvoVisivelMaisProximo = headAlvo
+                    end
+                else
+                    if distanciaAtual < menorDistanciaOculta then
+                        menorDistanciaOculta = distanciaAtual
+                        alvoOcultoMaisProximo = headAlvo
+                    end
                 end
             end
         end
     end
-    return alvoMaisProximo
+
+    -- Prioridade 1: Retorna o mais próximo visível. Prioridade 2: Retorna o mais próximo através da parede.
+    return alvoVisivelMaisProximo or alvoOcultoMaisProximo
 end
 
 btnAimbot.MouseButton1Click:Connect(function()
