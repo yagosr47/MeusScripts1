@@ -1,10 +1,10 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
 
 local localPlayer = Players.LocalPlayer
-local DISTANCIA_SEGURA = 15
+local DISTANCIA_SEGURA = 15 -- Distância mínima permitida antes de começar a correr
+local DISTANCIA_PULO = 7    -- Distância crítica para forçar o pulo (pânico)
 
 -- Variáveis de Controle
 local autoDodgeEnabled = false
@@ -17,7 +17,6 @@ local dodgeConnection = nil
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoDodgeGUI"
 screenGui.ResetOnSpawn = false
--- Se estiver testando no Studio, coloca no PlayerGui. 
 screenGui.Parent = localPlayer:WaitForChild("PlayerGui") 
 
 -- Janela Principal
@@ -135,8 +134,7 @@ end)
 ---------------------------------------------------------
 -- 3. LÓGICA DA INTERFACE (BOTÕES)
 ---------------------------------------------------------
-
--- Função do Botão Minimizar
+-- Função Minimizar
 minButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
@@ -146,7 +144,7 @@ minButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Função do Botão Fechar
+-- Função Fechar
 closeButton.MouseButton1Click:Connect(function()
     autoDodgeEnabled = false
     if dodgeConnection then
@@ -155,7 +153,7 @@ closeButton.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- Função do Botão Toggle
+-- Função Toggle (Ligar/Desligar)
 toggleButton.MouseButton1Click:Connect(function()
     autoDodgeEnabled = not autoDodgeEnabled
     
@@ -169,7 +167,7 @@ toggleButton.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- 4. LÓGICA DO AUTO-DODGE
+-- 4. LÓGICA DO AUTO-DODGE APRIMORADA (PULO E PAREDES)
 ---------------------------------------------------------
 dodgeConnection = RunService.Heartbeat:Connect(function()
     if not autoDodgeEnabled then return end
@@ -185,6 +183,7 @@ dodgeConnection = RunService.Heartbeat:Connect(function()
     local nearestPlayer = nil
     local shortestDistance = DISTANCIA_SEGURA
     
+    -- 4.1 Encontra o jogador mais próximo
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local targetRoot = player.Character.HumanoidRootPart
@@ -197,16 +196,46 @@ dodgeConnection = RunService.Heartbeat:Connect(function()
         end
     end
     
+    -- 4.2 Lógica de Fuga
     if nearestPlayer then
         local targetRoot = nearestPlayer.Character.HumanoidRootPart
         local directionAway = (myRoot.Position - targetRoot.Position).Unit
+        local fleeVector = Vector3.new(directionAway.X, 0, directionAway.Z).Unit
         
-        -- Garante que o personagem não tente subir ou descer no eixo Y
-        local fleeVector = Vector3.new(directionAway.X, 0, directionAway.Z)
+        -- Se o jogador estiver excessivamente perto, força o pulo
+        if shortestDistance < DISTANCIA_PULO then
+            humanoid.Jump = true
+        end
         
-        -- Evita falhas matemáticas caso os dois jogadores estejam na exata mesma coordenada
+        -- 4.3 Raycasting para evitar e deslizar por paredes
+        local rayOrigin = myRoot.Position
+        local rayDirection = fleeVector * (DISTANCIA_SEGURA / 2) -- Olha à frente na direção de fuga
+        
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {character, nearestPlayer.Character}
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        -- Lança o raio no mundo
+        local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+        
+        -- Se atingir uma parede ou obstáculo
+        if rayResult then
+            local wallNormal = rayResult.Normal
+            
+            -- Recalcula para deslizar paralelo à parede
+            local slideVector = fleeVector - (fleeVector:Dot(wallNormal) * wallNormal)
+            
+            if slideVector.Magnitude > 0 then
+                fleeVector = slideVector.Unit
+            else
+                -- Caso bata exatamente de frente, tenta virar 90 graus
+                fleeVector = Vector3.new(0, 1, 0):Cross(wallNormal).Unit
+            end
+        end
+        
+        -- 4.4 Move o personagem para a rota segura final
         if fleeVector.Magnitude > 0 then
-            local safePosition = myRoot.Position + (fleeVector.Unit * DISTANCIA_SEGURA)
+            local safePosition = myRoot.Position + (fleeVector * DISTANCIA_SEGURA)
             humanoid:MoveTo(safePosition)
         end
     end
