@@ -1,5 +1,5 @@
 -- ==========================================
--- Hub Universal V23 - ESP DE CARGOS E MULTI-INVENTÁRIO
+-- Hub Universal V20 - INVENTÁRIO AVANÇADO & BUSCA GLOBAL
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -12,27 +12,24 @@ local player = Players.LocalPlayer
 -- ==========================================
 local minimizado = false
 local esp1ItemAtivado = false
-local espBuscaAtivado = false
-local espTitulosAtivado = false
+local espBuscaAtivada = false
+local termoGlobalBusca = ""
+local loopAtivo = true
 
-local espConnection1Item = nil
-local espConnectionBusca = nil
-local espConnectionTitulos = nil
-
-local corTema = Color3.fromRGB(255, 50, 50)
+local corTema = Color3.fromRGB(255, 50, 50) -- Tema Vermelho
 
 -- ==========================================
 -- 1. CRIAÇÃO DA INTERFACE BASE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HubInventoryScannerV23"
+screenGui.Name = "HubInventoryScanner"
 screenGui.ResetOnSpawn = false
 local success, _ = pcall(function() screenGui.Parent = CoreGui end)
 if not success then screenGui.Parent = player:WaitForChild("PlayerGui") end
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 480, 0, 400)
-mainFrame.Position = UDim2.new(0.5, -240, 0.5, -200)
+mainFrame.Size = UDim2.new(0, 450, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -225, 0.5, -200)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -55,10 +52,10 @@ local titleText = Instance.new("TextLabel", titleBar)
 titleText.Size = UDim2.new(0.6, 0, 1, 0)
 titleText.Position = UDim2.new(0.05, 0, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = "HUB V23 - CARGOS E INVENTÁRIOS"
+titleText.Text = "HUB INVENTÁRIOS V20 (AVANÇADO)"
 titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 14
+titleText.TextSize = 13
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 
 local closeBtn = Instance.new("TextButton", titleBar)
@@ -68,7 +65,7 @@ closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
 
 local minBtn = Instance.new("TextButton", titleBar)
-minBtn.Size = UDim2.new(0, 30, 0, 30); minBtn.Position = UDim2.new(0.82, 0, 0.1, 0)
+minBtn.Size = UDim2.new(0, 30, 0, 30); minBtn.Position = UDim2.new(0.8, 0, 0.1, 0)
 minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); minBtn.Text = "-"
 minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
@@ -84,42 +81,37 @@ tabLayout.FillDirection = Enum.FillDirection.Horizontal
 
 local function criarAba(nome, ordem)
     local btn = Instance.new("TextButton", tabBar)
-    btn.Size = UDim2.new(0.25, 0, 1, 0)
+    btn.Size = UDim2.new(0.333, 0, 1, 0)
     btn.BackgroundTransparency = 1
     btn.Text = nome; btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.GothamSemibold; btn.TextSize = 12; btn.LayoutOrder = ordem
     return btn
 end
 
-local tabEsp1 = criarAba("ESP 1 Item", 1)
-local tabEspBusca = criarAba("Busca Item", 2)
-local tabEspTitulos = criarAba("Cargos", 3)
-local tabScanner = criarAba("Scanner", 4)
+local tabEsp = criarAba("ESP (1 Item)", 1)
+local tabScanner = criarAba("Scanner", 2)
+local tabBusca = criarAba("Busca Global", 3)
 
 local pageContainer = Instance.new("Frame", mainFrame)
 pageContainer.Size = UDim2.new(1, 0, 1, -70); pageContainer.Position = UDim2.new(0, 0, 0, 70)
 pageContainer.BackgroundTransparency = 1
 
-local pageEsp1 = Instance.new("Frame", pageContainer); pageEsp1.Size = UDim2.new(1, 0, 1, 0); pageEsp1.BackgroundTransparency = 1; pageEsp1.Visible = true
-local pageEspBusca = Instance.new("Frame", pageContainer); pageEspBusca.Size = UDim2.new(1, 0, 1, 0); pageEspBusca.BackgroundTransparency = 1; pageEspBusca.Visible = false
-local pageEspTitulos = Instance.new("Frame", pageContainer); pageEspTitulos.Size = UDim2.new(1, 0, 1, 0); pageEspTitulos.BackgroundTransparency = 1; pageEspTitulos.Visible = false
+local pageEsp = Instance.new("Frame", pageContainer); pageEsp.Size = UDim2.new(1, 0, 1, 0); pageEsp.BackgroundTransparency = 1; pageEsp.Visible = true
 local pageScanner = Instance.new("Frame", pageContainer); pageScanner.Size = UDim2.new(1, 0, 1, 0); pageScanner.BackgroundTransparency = 1; pageScanner.Visible = false
+local pageBusca = Instance.new("Frame", pageContainer); pageBusca.Size = UDim2.new(1, 0, 1, 0); pageBusca.BackgroundTransparency = 1; pageBusca.Visible = false
 
-local function mudarAba(abaAtiva, paginaAtiva)
-    tabEsp1.TextColor3 = Color3.fromRGB(200, 200, 200); tabEspBusca.TextColor3 = Color3.fromRGB(200, 200, 200)
-    tabEspTitulos.TextColor3 = Color3.fromRGB(200, 200, 200); tabScanner.TextColor3 = Color3.fromRGB(200, 200, 200)
-    pageEsp1.Visible = false; pageEspBusca.Visible = false; pageEspTitulos.Visible = false; pageScanner.Visible = false
-    abaAtiva.TextColor3 = corTema; paginaAtiva.Visible = true
+local function resetTabs()
+    tabEsp.TextColor3 = Color3.fromRGB(200, 200, 200); tabScanner.TextColor3 = Color3.fromRGB(200, 200, 200); tabBusca.TextColor3 = Color3.fromRGB(200, 200, 200)
+    pageEsp.Visible = false; pageScanner.Visible = false; pageBusca.Visible = false
 end
 
-tabEsp1.MouseButton1Click:Connect(function() mudarAba(tabEsp1, pageEsp1) end)
-tabEspBusca.MouseButton1Click:Connect(function() mudarAba(tabEspBusca, pageEspBusca) end)
-tabEspTitulos.MouseButton1Click:Connect(function() mudarAba(tabEspTitulos, pageEspTitulos) end)
-tabScanner.MouseButton1Click:Connect(function() mudarAba(tabScanner, pageScanner) end)
-tabEsp1.TextColor3 = corTema
+tabEsp.MouseButton1Click:Connect(function() resetTabs() pageEsp.Visible = true; tabEsp.TextColor3 = corTema end)
+tabScanner.MouseButton1Click:Connect(function() resetTabs() pageScanner.Visible = true; tabScanner.TextColor3 = corTema end)
+tabBusca.MouseButton1Click:Connect(function() resetTabs() pageBusca.Visible = true; tabBusca.TextColor3 = corTema end)
+tabEsp.TextColor3 = corTema
 
 -- ==========================================
--- FUNÇÕES AUXILIARES E LÓGICA DE INVENTÁRIO
+-- FUNÇÕES AUXILIARES E DE BUSCA AVANÇADA
 -- ==========================================
 local function criarBotaoSimples(texto, parent, cor)
     local btn = Instance.new("TextButton", parent)
@@ -131,206 +123,258 @@ local function criarBotaoSimples(texto, parent, cor)
     return btn
 end
 
-local function obterItensJogador(alvo)
-    local itensDetectados = {}
-    local nomesAdicionados = {}
-    local function adicionarItem(nome)
-        if not nomesAdicionados[nome] then table.insert(itensDetectados, {Name = nome}); nomesAdicionados[nome] = true end
-    end
+-- Identifica itens na mochila clássica, no corpo, e em pastas customizadas (Values)
+local function obterInventarioAvançado(alvo)
+    local itensData = {}
+    local nomesRegistrados = {}
 
-    if alvo:FindFirstChild("Backpack") then
-        for _, item in pairs(alvo.Backpack:GetChildren()) do if item:IsA("Tool") or item:IsA("HopperBin") then adicionarItem(item.Name) end end
-    end
-    if alvo.Character then
-        for _, item in pairs(alvo.Character:GetChildren()) do if item:IsA("Tool") or item:IsA("HopperBin") then adicionarItem(item.Name) end end
-    end
-
-    local pastasComuns = {"Inventory", "Itens", "Items", "Data", "leaderstats"}
-    for _, nomePasta in ipairs(pastasComuns) do
-        local pasta = alvo:FindFirstChild(nomePasta)
-        if pasta then
-            for _, obj in pairs(pasta:GetChildren()) do if obj:IsA("ValueBase") or obj:IsA("Model") or obj:IsA("Folder") then adicionarItem(obj.Name) end end
+    local function adicionarItem(nome, tipoInv)
+        if not nomesRegistrados[nome] then
+            table.insert(itensData, {Nome = nome, Tipo = tipoInv})
+            nomesRegistrados[nome] = true
         end
     end
-    return itensDetectados
+
+    -- 1. Clássico (Mochila e Equipado)
+    if alvo:FindFirstChild("Backpack") then
+        for _, item in pairs(alvo.Backpack:GetChildren()) do
+            if item:IsA("Tool") or item:IsA("HopperBin") then adicionarItem(item.Name, "Mochila") end
+        end
+    end
+    if alvo.Character then
+        for _, item in pairs(alvo.Character:GetChildren()) do
+            if item:IsA("Tool") or item:IsA("HopperBin") then adicionarItem(item.Name, "Equipado") end
+        end
+    end
+
+    -- 2. Pastas Customizadas (Muitos jogos salvam itens em pastas com ValueBases ou Models)
+    local possiveisPastas = {"Inventory", "Inventario", "Items", "Bag", "Mochila", "Pets"}
+    for _, nomePasta in ipairs(possiveisPastas) do
+        local pasta = alvo:FindFirstChild(nomePasta)
+        if pasta then
+            for _, item in pairs(pasta:GetChildren()) do
+                adicionarItem(item.Name, "Pasta: " .. nomePasta)
+            end
+        end
+    end
+
+    return itensData
 end
 
--- ==========================================
--- NOVA LÓGICA: IDENTIFICAR CARGOS/TÍTULOS
--- ==========================================
-local function tentarDescobrirCargo(alvo)
-    local cargoDetectado = "Inocente / Sem Título"
-    
-    -- 1. Tentar pegar por "Team" (Jogos clássicos)
-    if alvo.Team then cargoDetectado = alvo.Team.Name end
-    
-    -- 2. Procurar em Strings ocultas
-    local nomesDesejados = {"role", "title", "cargo", "classe", "job"}
-    local locaisBusca = {alvo, alvo:FindFirstChild("leaderstats")}
-    
-    for _, localBusca in pairs(locaisBusca) do
-        if localBusca then
-            for _, obj in pairs(localBusca:GetChildren()) do
-                if obj:IsA("StringValue") then
-                    for _, nomeP em ipairs(nomesDesejados) do
-                        if string.lower(obj.Name) == nomeP then return obj.Value end
+-- Gerenciador Universal de ESP
+local function gerenciarESP(alvo, ligar, textoCima, cor)
+    if not alvo.Character or not alvo.Character:FindFirstChild("Head") then return end
+    local char = alvo.Character
+    local head = char.Head
+
+    -- Remove antigas
+    if char:FindFirstChild("ESP_Highlight_Hub") then char.ESP_Highlight_Hub:Destroy() end
+    if head:FindFirstChild("ESP_Texto_Hub") then head.ESP_Texto_Hub:Destroy() end
+
+    if ligar then
+        -- Cria Highlight
+        local hl = Instance.new("Highlight", char)
+        hl.Name = "ESP_Highlight_Hub"
+        hl.FillColor = cor
+        hl.OutlineColor = cor
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+
+        -- Cria Texto
+        local espGui = Instance.new("BillboardGui", head)
+        espGui.Name = "ESP_Texto_Hub"
+        espGui.Size = UDim2.new(0, 200, 0, 50)
+        espGui.AlwaysOnTop = true
+        espGui.StudsOffset = Vector3.new(0, 2.5, 0)
+        
+        local txt = Instance.new("TextLabel", espGui)
+        txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1
+        txt.TextColor3 = cor; txt.TextStrokeTransparency = 0
+        txt.Font = Enum.Font.GothamBold; txt.TextSize = 13
+        txt.Text = textoCima
+    end
+end
+
+local function limparTodosESPs()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then gerenciarESP(p, false) end
+    end
+end
+
+-- Loop Central de Verificação (Mais leve que RenderStepped para leitura de inventários)
+task.spawn(function()
+    while task.wait(0.5) do
+        if not loopAtivo then break end
+
+        if esp1ItemAtivado or espBuscaAtivada then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= player then
+                    local itens = obterInventarioAvançado(p)
+                    local encontrouAlvo = false
+                    
+                    -- Prioridade 1: ESP Busca Global
+                    if espBuscaAtivada and termoGlobalBusca ~= "" then
+                        local itemEncontradoBusca = nil
+                        for _, itemData in ipairs(itens) do
+                            if string.find(string.lower(itemData.Nome), termoGlobalBusca) then
+                                itemEncontradoBusca = itemData.Nome
+                                break
+                            end
+                        end
+
+                        if itemEncontradoBusca then
+                            encontrouAlvo = true
+                            gerenciarESP(p, true, "["..p.Name.."]\nAchou: "..itemEncontradoBusca, Color3.fromRGB(255, 0, 0))
+                        end
+                    end
+
+                    -- Prioridade 2: ESP 1 Item (Só aplica se não estiver no ESP Global)
+                    if not encontrouAlvo and esp1ItemAtivado then
+                        if #itens == 1 then
+                            encontrouAlvo = true
+                            gerenciarESP(p, true, "["..p.Name.."]\n1 Item: "..itens[1].Nome, Color3.fromRGB(255, 150, 0))
+                        end
+                    end
+
+                    -- Se o jogador não se encaixa nas regras ativas, remove o ESP dele
+                    if not encontrouAlvo then
+                        gerenciarESP(p, false)
                     end
                 end
             end
         end
     end
-    
-    -- 3. Heurística secreta via itens (Dedução)
-    local itens = obterItensJogador(alvo)
-    for _, item in ipairs(itens) do
-        local n = string.lower(item.Name)
-        if string.find(n, "knife") or string.find(n, "faca") or string.find(n, "espada") then return "Assassino/Murderer" end
-        if string.find(n, "gun") or string.find(n, "revolver") or string.find(n, "arma") then return "Xerife/Sheriff" end
-        if string.find(n, "deathnote") or string.find(n, "kira") then return "Kira" end
-    end
-    
-    return cargoDetectado
-end
-
--- ==========================================
--- FUNÇÕES DE ESP E EXCLUSIVIDADE
--- ==========================================
-local function limparTodosESPs()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p.Character then
-            if p.Character:FindFirstChild("ESP_Highlight") then p.Character.ESP_Highlight:Destroy() end
-            if p.Character:FindFirstChild("Head") and p.Character.Head:FindFirstChild("ESP_Tag") then p.Character.Head.ESP_Tag:Destroy() end
-        end
-    end
-end
-
-local function aplicarESPVermelho(char, nomeJogador, textoAdicional)
-    if not char then return end
-    local head = char:FindFirstChild("Head")
-    
-    if not char:FindFirstChild("ESP_Highlight") then
-        local hl = Instance.new("Highlight", char); hl.Name = "ESP_Highlight"
-        hl.FillColor = Color3.fromRGB(255, 0, 0); hl.OutlineColor = Color3.fromRGB(255, 0, 0)
-        hl.FillTransparency = 0.5; hl.OutlineTransparency = 0; hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    end
-    
-    if head then
-        local espGui = head:FindFirstChild("ESP_Tag")
-        if not espGui then
-            espGui = Instance.new("BillboardGui", head); espGui.Name = "ESP_Tag"
-            espGui.Size = UDim2.new(0, 200, 0, 50); espGui.AlwaysOnTop = true; espGui.StudsOffset = Vector3.new(0, 2, 0)
-            
-            local txt = Instance.new("TextLabel", espGui); txt.Size = UDim2.new(1, 0, 1, 0)
-            txt.BackgroundTransparency = 1; txt.TextColor3 = Color3.fromRGB(255, 50, 50)
-            txt.TextStrokeTransparency = 0; txt.Font = Enum.Font.GothamBold; txt.TextSize = 13
-        end
-        espGui.TextLabel.Text = "[ " .. nomeJogador .. " ]\n" .. textoAdicional
-    end
-end
-
-local function desativarOutrosESPs()
-    esp1ItemAtivado = false; espBuscaAtivado = false; espTitulosAtivado = false
-    if espConnection1Item then espConnection1Item:Disconnect(); espConnection1Item = nil end
-    if espConnectionBusca then espConnectionBusca:Disconnect(); espConnectionBusca = nil end
-    if espConnectionTitulos then espConnectionTitulos:Disconnect(); espConnectionTitulos = nil end
-    limparTodosESPs()
-end
-
--- ==========================================
--- LÓGICA DAS ABAS DE ESP
--- ==========================================
--- BOTÃO ESP 1 ITEM
-local btnAtivarEsp1 = criarBotaoSimples("Ligar ESP (1 Item)", pageEsp1, Color3.fromRGB(150, 50, 50))
-btnAtivarEsp1.Position = UDim2.new(0.05, 0, 0.2, 0)
-local lblEsp1 = Instance.new("TextLabel", pageEsp1); lblEsp1.Size = UDim2.new(0.9, 0, 0, 40); lblEsp1.Position = UDim2.new(0.05, 0, 0.05, 0); lblEsp1.BackgroundTransparency = 1; lblEsp1.TextColor3 = Color3.fromRGB(200,200,200); lblEsp1.TextWrapped = true; lblEsp1.Text = "Revela quem possui EXATAMENTE 1 item."
-
-btnAtivarEsp1.MouseButton1Click:Connect(function()
-    local estavaAtivado = esp1ItemAtivado
-    desativarOutrosESPs()
-    
-    if not estavaAtivado then
-        esp1ItemAtivado = true; btnAtivarEsp1.Text = "LIGADO (ESP 1 Item)"; btnAtivarEsp1.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-        espConnection1Item = RunService.RenderStepped:Connect(function()
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and p.Character then
-                    local itens = obterItensJogador(p)
-                    if #itens == 1 then aplicarESPVermelho(p.Character, p.Name, "Item: " .. itens[1].Name) else p.Character:FindFirstChild("ESP_Highlight") end
-                end
-            end
-        end)
-    else btnAtivarEsp1.Text = "Ligar ESP (1 Item)"; btnAtivarEsp1.BackgroundColor3 = Color3.fromRGB(150, 50, 50) end
 end)
 
--- BOTÃO ESP BUSCA
-local inputBuscaGlobal = Instance.new("TextBox", pageEspBusca)
-inputBuscaGlobal.Size = UDim2.new(0.9, 0, 0, 35); inputBuscaGlobal.Position = UDim2.new(0.05, 0, 0.05, 0)
-inputBuscaGlobal.BackgroundColor3 = Color3.fromRGB(30, 30, 30); inputBuscaGlobal.PlaceholderText = "Ex: Espada Mágica..."; inputBuscaGlobal.Text = ""; inputBuscaGlobal.TextColor3 = Color3.fromRGB(255, 255, 255)
-local btnAtivarEspBusca = criarBotaoSimples("Ligar ESP por Item", pageEspBusca, Color3.fromRGB(150, 100, 50))
-btnAtivarEspBusca.Position = UDim2.new(0.05, 0, 0.25, 0)
 
-btnAtivarEspBusca.MouseButton1Click:Connect(function()
-    local estavaAtivado = espBuscaAtivado
-    desativarOutrosESPs(); btnAtivarEsp1.Text = "Ligar ESP (1 Item)"; btnAtivarEsp1.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-    
-    if not estavaAtivado then
-        espBuscaAtivado = true; btnAtivarEspBusca.Text = "LIGADO (Busca)"; btnAtivarEspBusca.BackgroundColor3 = Color3.fromRGB(255, 150, 50)
-        espConnectionBusca = RunService.RenderStepped:Connect(function()
-            local termo = string.lower(inputBuscaGlobal.Text)
-            if termo == "" then limparTodosESPs(); return end
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and p.Character then
-                    local itens = obterItensJogador(p); local achou = nil
-                    for _, it in ipairs(itens) do if string.find(string.lower(it.Name), termo) then achou = it.Name; break end end
-                    if achou then aplicarESPVermelho(p.Character, p.Name, achou) end
-                end
-            end
-        end)
-    else btnAtivarEspBusca.Text = "Ligar ESP por Item"; btnAtivarEspBusca.BackgroundColor3 = Color3.fromRGB(150, 100, 50) end
-end)
+-- ==========================================
+-- PÁGINA 1: ESP (APENAS 1 ITEM)
+-- ==========================================
+local espInfo = Instance.new("TextLabel", pageEsp)
+espInfo.Size = UDim2.new(0.9, 0, 0, 60); espInfo.Position = UDim2.new(0.05, 0, 0.1, 0)
+espInfo.BackgroundTransparency = 1; espInfo.TextWrapped = true
+espInfo.Text = "Revela jogadores com EXATAMENTE 1 item (qualquer tipo de inventário). O jogador ficará Laranja."
+espInfo.TextColor3 = Color3.fromRGB(200, 200, 200); espInfo.Font = Enum.Font.Gotham; espInfo.TextSize = 12
 
--- BOTÃO ESP TÍTULOS / CARGOS
-local lblEspTitulos = Instance.new("TextLabel", pageEspTitulos); lblEspTitulos.Size = UDim2.new(0.9, 0, 0, 60); lblEspTitulos.Position = UDim2.new(0.05, 0, 0.05, 0); lblEspTitulos.BackgroundTransparency = 1; lblEspTitulos.TextColor3 = Color3.fromRGB(200,200,200); lblEspTitulos.TextWrapped = true; lblEspTitulos.Text = "Escaneia times, dados ocultos e itens para descobrir se o jogador é Inocente, Impostor, Murderer, Xerife, Kira, L, etc."
-local btnAtivarEspTitulos = criarBotaoSimples("Ligar ESP de Cargos", pageEspTitulos, Color3.fromRGB(100, 50, 150))
-btnAtivarEspTitulos.Position = UDim2.new(0.05, 0, 0.3, 0)
+local btnAtivarEsp = criarBotaoSimples("Ligar ESP (1 Item)", pageEsp, Color3.fromRGB(150, 100, 50))
+btnAtivarEsp.Position = UDim2.new(0.05, 0, 0.4, 0)
 
-btnAtivarEspTitulos.MouseButton1Click:Connect(function()
-    local estavaAtivado = espTitulosAtivado
-    desativarOutrosESPs(); btnAtivarEsp1.Text = "Ligar ESP (1 Item)"; btnAtivarEsp1.BackgroundColor3 = Color3.fromRGB(150, 50, 50); btnAtivarEspBusca.Text = "Ligar ESP por Item"; btnAtivarEspBusca.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
-    
-    if not estavaAtivado then
-        espTitulosAtivado = true; btnAtivarEspTitulos.Text = "LIGADO (ESP Cargos)"; btnAtivarEspTitulos.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
-        espConnectionTitulos = RunService.RenderStepped:Connect(function()
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and p.Character then
-                    local cargoStr = tentarDescobrirCargo(p)
-                    aplicarESPVermelho(p.Character, p.Name, cargoStr)
-                end
-            end
-        end)
-    else btnAtivarEspTitulos.Text = "Ligar ESP de Cargos"; btnAtivarEspTitulos.BackgroundColor3 = Color3.fromRGB(100, 50, 150) end
+btnAtivarEsp.MouseButton1Click:Connect(function()
+    esp1ItemAtivado = not esp1ItemAtivado
+    btnAtivarEsp.Text = esp1ItemAtivado and "Desligar ESP (1 Item)" or "Ligar ESP (1 Item)"
+    btnAtivarEsp.BackgroundColor3 = esp1ItemAtivado and Color3.fromRGB(255, 150, 0) or Color3.fromRGB(150, 100, 50)
+    if not esp1ItemAtivado and not espBuscaAtivada then limparTodosESPs() end
 end)
 
 -- ==========================================
--- PÁGINA 4: SCANNER GERAL
+-- PÁGINA 2: SCANNER DE INVENTÁRIOS
 -- ==========================================
 local btnAtualizarPlayers = criarBotaoSimples("Atualizar Lista de Jogadores", pageScanner, Color3.fromRGB(0, 150, 100))
-local listaJogadoresFrame = Instance.new("ScrollingFrame", pageScanner); listaJogadoresFrame.Size = UDim2.new(0.9, 0, 0.7, 0); listaJogadoresFrame.Position = UDim2.new(0.05, 0, 0.2, 0); listaJogadoresFrame.BackgroundTransparency = 1; listaJogadoresFrame.ScrollBarThickness = 4; local listaLayout = Instance.new("UIListLayout", listaJogadoresFrame); listaLayout.Padding = UDim.new(0, 5)
+btnAtualizarPlayers.Position = UDim2.new(0.05, 0, 0.05, 0)
+
+local listaJogadoresFrame = Instance.new("ScrollingFrame", pageScanner)
+listaJogadoresFrame.Size = UDim2.new(0.9, 0, 0.7, 0); listaJogadoresFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
+listaJogadoresFrame.BackgroundTransparency = 1; listaJogadoresFrame.ScrollBarThickness = 4
+local listaLayout = Instance.new("UIListLayout", listaJogadoresFrame); listaLayout.Padding = UDim.new(0, 5)
+
+local itensContainer = Instance.new("Frame", pageScanner)
+itensContainer.Size = UDim2.new(1, 0, 1, 0); itensContainer.BackgroundTransparency = 1; itensContainer.Visible = false
+
+local btnVoltar = criarBotaoSimples("← Voltar para Lista", itensContainer, Color3.fromRGB(80, 80, 80))
+btnVoltar.Position = UDim2.new(0.05, 0, 0.05, 0)
+
+local listaItensScroll = Instance.new("ScrollingFrame", itensContainer)
+listaItensScroll.Size = UDim2.new(0.9, 0, 0.7, 0); listaItensScroll.Position = UDim2.new(0.05, 0, 0.2, 0)
+listaItensScroll.BackgroundTransparency = 1; listaItensScroll.ScrollBarThickness = 4
+local itensLayout = Instance.new("UIListLayout", listaItensScroll); itensLayout.Padding = UDim.new(0, 5)
 
 btnAtualizarPlayers.MouseButton1Click:Connect(function()
-    for _, c in pairs(listaJogadoresFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    for _, child in pairs(listaJogadoresFrame:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player then
-            local btnPlayer = Instance.new("TextButton", listaJogadoresFrame); btnPlayer.Size = UDim2.new(1, 0, 0, 35); btnPlayer.BackgroundColor3 = Color3.fromRGB(35, 35, 35); btnPlayer.Text = p.Name .. " (" .. #obterItensJogador(p) .. " Itens)"; btnPlayer.TextColor3 = Color3.fromRGB(255, 255, 255); btnPlayer.Font = Enum.Font.GothamSemibold; Instance.new("UICorner", btnPlayer).CornerRadius = UDim.new(0, 6)
+            local btnPlayer = Instance.new("TextButton", listaJogadoresFrame)
+            btnPlayer.Size = UDim2.new(1, 0, 0, 35); btnPlayer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            btnPlayer.Text = p.Name .. " (" .. #obterInventarioAvançado(p) .. " Itens)"
+            btnPlayer.TextColor3 = Color3.fromRGB(255, 255, 255); btnPlayer.Font = Enum.Font.GothamSemibold
+            Instance.new("UICorner", btnPlayer).CornerRadius = UDim.new(0, 6)
+            
+            btnPlayer.MouseButton1Click:Connect(function()
+                btnAtualizarPlayers.Visible = false; listaJogadoresFrame.Visible = false; itensContainer.Visible = true
+                for _, child in pairs(listaItensScroll:GetChildren()) do if child:IsA("TextLabel") then child:Destroy() end end
+                
+                local itens = obterInventarioAvançado(p)
+                for _, itemData in ipairs(itens) do
+                    local lblItem = Instance.new("TextLabel", listaItensScroll)
+                    lblItem.Size = UDim2.new(1, 0, 0, 30); lblItem.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                    -- Mostra o Tipo do inventário + Nome do item
+                    lblItem.Text = " [" .. itemData.Tipo .. "] " .. itemData.Nome
+                    lblItem.TextColor3 = Color3.fromRGB(200, 200, 255); lblItem.TextXAlignment = Enum.TextXAlignment.Left
+                    lblItem.Font = Enum.Font.Gotham; lblItem.TextSize = 12
+                    Instance.new("UICorner", lblItem).CornerRadius = UDim.new(0, 6)
+                end
+            end)
         end
     end
 end)
+
+btnVoltar.MouseButton1Click:Connect(function()
+    itensContainer.Visible = false; btnAtualizarPlayers.Visible = true; listaJogadoresFrame.Visible = true
+end)
+
+
+-- ==========================================
+-- PÁGINA 3: BUSCA GLOBAL (ESP DE ITEM)
+-- ==========================================
+local buscaInfo = Instance.new("TextLabel", pageBusca)
+buscaInfo.Size = UDim2.new(0.9, 0, 0, 60); buscaInfo.Position = UDim2.new(0.05, 0, 0.05, 0)
+buscaInfo.BackgroundTransparency = 1; buscaInfo.TextWrapped = true
+buscaInfo.Text = "Digite o nome (ou parte do nome) de um item. Qualquer jogador no mapa que possuir este item ficará VERMELHO."
+buscaInfo.TextColor3 = Color3.fromRGB(200, 200, 200); buscaInfo.Font = Enum.Font.Gotham; buscaInfo.TextSize = 12
+
+local inputGlobalBusca = Instance.new("TextBox", pageBusca)
+inputGlobalBusca.Size = UDim2.new(0.9, 0, 0, 40); inputGlobalBusca.Position = UDim2.new(0.05, 0, 0.25, 0)
+inputGlobalBusca.BackgroundColor3 = Color3.fromRGB(30, 30, 30); inputGlobalBusca.PlaceholderText = "Ex: Espada, Key, Gun..."
+inputGlobalBusca.Text = ""; inputGlobalBusca.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputGlobalBusca.Font = Enum.Font.Gotham; inputGlobalBusca.TextSize = 14
+Instance.new("UICorner", inputGlobalBusca).CornerRadius = UDim.new(0, 6)
+
+local btnAtivarBusca = criarBotaoSimples("Ligar ESP de Busca", pageBusca, Color3.fromRGB(150, 50, 50))
+btnAtivarBusca.Position = UDim2.new(0.05, 0, 0.45, 0)
+
+btnAtivarBusca.MouseButton1Click:Connect(function()
+    if inputGlobalBusca.Text == "" and not espBuscaAtivada then return end -- Nao deixa ligar vazio
+
+    espBuscaAtivada = not espBuscaAtivada
+    if espBuscaAtivada then
+        termoGlobalBusca = string.lower(inputGlobalBusca.Text)
+        btnAtivarBusca.Text = "Desligar ESP de Busca"
+        btnAtivarBusca.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    else
+        termoGlobalBusca = ""
+        btnAtivarBusca.Text = "Ligar ESP de Busca"
+        btnAtivarBusca.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+        if not esp1ItemAtivado then limparTodosESPs() end
+    end
+end)
+
 
 -- ==========================================
 -- LÓGICA GERAL (MINIMIZAR/FECHAR)
 -- ==========================================
-closeBtn.MouseButton1Click:Connect(function() desativarOutrosESPs(); screenGui:Destroy() end)
+closeBtn.MouseButton1Click:Connect(function() 
+    loopAtivo = false
+    limparTodosESPs()
+    screenGui:Destroy() 
+end)
+
 minBtn.MouseButton1Click:Connect(function()
     minimizado = not minimizado
-    if minimizado then mainFrame:TweenSize(UDim2.new(0, 480, 0, 35), "Out", "Quad", 0.3, true); tabBar.Visible = false; pageContainer.Visible = false
-    else mainFrame:TweenSize(UDim2.new(0, 480, 0, 400), "Out", "Quad", 0.3, true); tabBar.Visible = true; pageContainer.Visible = true end
+    if minimizado then
+        mainFrame:TweenSize(UDim2.new(0, 450, 0, 35), "Out", "Quad", 0.3, true)
+        tabBar.Visible = false; pageContainer.Visible = false
+    else
+        mainFrame:TweenSize(UDim2.new(0, 450, 0, 400), "Out", "Quad", 0.3, true)
+        tabBar.Visible = true; pageContainer.Visible = true
+    end
 end)
