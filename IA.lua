@@ -12,7 +12,7 @@ local player = Players.LocalPlayer
 -- 🔴 INSIRA SUA CHAVE DA API DO GOOGLE AQUI 🔴
 -- Pegue gratuitamente em: aistudio.google.com/app/apikey
 -- ==========================================
-local API_KEY = "AQ.Ab8RN6I78ou7ZVMudZ4BntCfHelOErkAvhRwwR-dxPTnBT8pGA" 
+local API_KEY = "AQ.Ab8RN6LmmAtFTLsDOyzTRYQTiPHwjWvyYZORq5cK_GIqyuGugw" 
 local API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" .. API_KEY
 
 -- Verifica qual função HTTP o executor suporta
