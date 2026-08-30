@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Compatibilidade - Online</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; text-align: center; margin: 0; padding: 20px; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .screen { display: none; width: 100%; max-width: 600px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 30px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .active { display: block; }
+        button { background: linear-gradient(45deg, #ff416c, #ff4b2b); color: white; border: none; padding: 15px 20px; font-size: 16px; border-radius: 12px; cursor: pointer; margin: 10px 0; width: 100%; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4); }
+        button:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(255, 65, 108, 0.6); }
+        button:disabled { background: #555; box-shadow: none; cursor: not-allowed; transform: none; }
+        .option-btn { background: rgba(255,255,255,0.15); text-align: left; box-shadow: none; border: 1px solid rgba(255,255,255,0.2); }
+        .option-btn:hover { background: rgba(255,255,255,0.3); }
+        input, select { padding: 15px; margin: 10px 0; width: 100%; border-radius: 10px; border: none; font-size: 16px; background: rgba(255,255,255,0.9); box-sizing: border-box; font-family: 'Poppins'; }
+        #timer-bar-container { width: 100%; background: rgba(0,0,0,0.3); height: 12px; border-radius: 10px; overflow: hidden; margin-bottom: 15px; }
+        #timer-bar { height: 100%; background: #00f2fe; width: 100%; transition: width 1s linear; }
+        ul { list-style: none; padding: 0; }
+        li { background: rgba(0,0,0,0.3); margin: 10px 0; padding: 15px; border-radius: 12px; text-align: left; border-left: 4px solid #ff416c;}
+        .room-code-display { font-size: 3em; letter-spacing: 5px; color: #00f2fe; margin: 10px 0; text-shadow: 0 0 10px rgba(0,242,254,0.5); }
+        .player-badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 20px; margin: 5px; font-size: 14px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="home-screen" class="screen active">
+        <h1 style="font-weight: 800; font-size: 2.5em;">🔥 Quest Match</h1>
+        <p>Jogue online com seus amigos!</p>
+        <input type="text" id="player-name" placeholder="Seu Nickname" maxlength="15">
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
+        <h3>Criar uma Sala (Host)</h3>
+        <select id="theme-select">
+            <option value="festas">Festas & Rolês</option>
+            <option value="trabalho">Mundo Corporativo (CLT)</option>
+            <option value="absurdos">Situações Absurdas</option>
+            <option value="zoeira">Zoeira & Apocalipse</option>
+            <option value="escola">Perrengues Escolares</option>
+            <option value="faculdade">Sofrimento Universitário</option>
+            <option value="jogos">Universo Gamer</option>
+        </select>
+        <select id="qtd-select">
+            <option value="5">5 Questões</option>
+            <option value="10">10 Questões</option>
+            <option value="20">20 Questões</option>
+            <option value="50">50 Questões (Maratona)</option>
+        </select>
+        <button onclick="createRoom()" style="background: linear-gradient(45deg, #11998e, #38ef7d);">Criar Nova Sala</button>
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 25px 0;">
+        <h3>Entrar em uma Sala</h3>
+        <input type="number" id="room-code-input" placeholder="Código de 4 Dígitos" maxlength="4">
+        <button onclick="joinRoom()">Entrar na Sala</button>
+    </div>
+
+    <div id="lobby-screen" class="screen">
+        <h2>Código da Sala:</h2>
+        <div id="display-room-code" class="room-code-display">0000</div>
+        <p>Aguardando jogadores...</p>
+        <div id="players-container" style="margin: 20px 0; min-height: 50px;"></div>
+        <button id="start-game-btn" class="hidden" onclick="startGame()" style="background: linear-gradient(45deg, #11998e, #38ef7d);">Iniciar Jogo!</button>
+        <p id="waiting-host-msg" class="hidden" style="color: #aaa; font-style: italic;">Aguardando o Host iniciar...</p>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <h3 id="question-text" style="font-size: 1.3em; margin-bottom: 20px;">Carregando...</h3>
+        <div id="timer-bar-container"><div id="timer-bar"></div></div>
+        <p style="font-weight: bold;">Tempo: <span id="timer-display" style="color: #00f2fe; font-size: 1.2em;">15</span>s</p>
+        <div id="options-container"></div>
+        <p id="waiting-others" class="hidden" style="color: #38ef7d; font-weight: bold; margin-top: 20px;">✅ Resposta registrada! Aguardando...</p>
+    </div>
+
+    <div id="round-results-screen" class="screen">
+        <h2>Respostas da Rodada 🧐</h2>
+        <p id="round-question-text" style="font-style: italic; color: #ccc;"></p>
+        <ul id="answers-list"></ul>
+        <button id="next-q-btn" class="hidden" onclick="requestNextQuestion()" style="background: linear-gradient(45deg, #11998e, #38ef7d);">Próxima Questão ➔</button>
+        <p id="waiting-next-msg" class="hidden" style="color: #aaa; font-style: italic;">Aguardando Host avançar...</p>
+    </div>
+
+    <div id="final-screen" class="screen">
+        <h2>💘 Compatibilidade Final</h2>
+        <ul id="compatibility-list"></ul>
+        <button onclick="location.reload()" style="margin-top: 20px;">Sair da Sala</button>
+    </div>
+
+    <script>
+        const socket = io();
+        let myName = "", isHost = false, currentRoom = "", gameTheme = "", currentQData = {};
+        let timerInterval, timeLeft = 15, answeredThisRound = false;
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function getPlayerName() {
+            const name = document.getElementById('player-name').value.trim();
+            if(!name) { alert("Digite seu nome!"); return null; }
+            return name;
+        }
+
+        function createRoom() {
+            myName = getPlayerName();
+            if(!myName) return;
+            isHost = true;
+            const theme = document.getElementById('theme-select').value;
+            const maxQ = parseInt(document.getElementById('qtd-select').value);
+            socket.emit('createRoom', { name: myName, theme, maxQ });
+        }
+
+        function joinRoom() {
+            myName = getPlayerName();
+            if(!myName) return;
+            const code = document.getElementById('room-code-input').value.trim();
+            if(code.length !== 4) return alert("Código de 4 dígitos!");
+            socket.emit('joinRoom', { code, name: myName });
+        }
+
+        socket.on('roomCreated', (code) => {
+            currentRoom = code;
+            document.getElementById('display-room-code').innerText = code;
+            document.getElementById('start-game-btn').classList.remove('hidden');
+            showScreen('lobby-screen');
+        });
+
+        socket.on('roomJoined', (code) => {
+            currentRoom = code;
+            document.getElementById('display-room-code').innerText = code;
+            document.getElementById('waiting-host-msg').classList.remove('hidden');
+            showScreen('lobby-screen');
+        });
+
+        socket.on('errorMsg', (msg) => alert(msg));
+        socket.on('updatePlayers', (players) => {
+            document.getElementById('players-container').innerHTML = players.map(p => `<span class="player-badge">👤 ${p.name}</span>`).join('');
+        });
+
+        function startGame() { socket.emit('startGame', currentRoom); }
+
+        socket.on('gameStarted', (data) => {
+            gameTheme = data.theme;
+            loadQuestion(0);
+        });
+
+        socket.on('nextRound', (qIndex) => loadQuestion(qIndex));
+
+        function loadQuestion(index) {
+            currentQData = bancoMissoes[gameTheme][index];
+            document.getElementById('question-text').innerText = currentQData.q;
+            document.getElementById('waiting-others').classList.add('hidden');
+            document.getElementById('options-container').classList.remove('hidden');
+            answeredThisRound = false;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            currentQData.options.forEach((opt, idx) => {
+                container.innerHTML += `<button class="option-btn" onclick="submitAnswer(${idx})">${idx + 1}. ${opt}</button>`;
+            });
+
+            showScreen('game-screen');
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 15;
+            updateTimerUI();
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    if(!answeredThisRound) submitAnswer(-1);
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            document.getElementById('timer-display').innerText = timeLeft;
+            document.getElementById('timer-bar').style.width = (timeLeft / 15 * 100) + '%';
+        }
+
+        function submitAnswer(idx) {
+            if(answeredThisRound) return;
+            answeredThisRound = true;
+            clearInterval(timerInterval);
+            document.getElementById('options-container').classList.add('hidden');
+            document.getElementById('waiting-others').classList.remove('hidden');
+            socket.emit('submitAnswer', { code: currentRoom, answerIdx: idx });
+        }
+
+        socket.on('roundResults', (playersList) => {
+            document.getElementById('round-question-text').innerText = `"${currentQData.q}"`;
+            const list = document.getElementById('answers-list');
+            list.innerHTML = '';
+            const currentQIndex = playersList[0].answers.length - 1;
+
+            playersList.forEach(p => {
+                const ansIdx = p.answers[currentQIndex];
+                const text = ansIdx === -1 ? "⏰ Acabou o tempo" : currentQData.options[ansIdx];
+                list.innerHTML += `<li><strong>${p.name}:</strong> <br> ${text}</li>`;
+            });
+
+            if(isHost) {
+                document.getElementById('next-q-btn').classList.remove('hidden');
+                document.getElementById('waiting-next-msg').classList.add('hidden');
+            } else {
+                document.getElementById('next-q-btn').classList.add('hidden');
+                document.getElementById('waiting-next-msg').classList.remove('hidden');
+            }
+            showScreen('round-results-screen');
+        });
+
+        function requestNextQuestion() { socket.emit('nextQuestion', currentRoom); }
+
+        socket.on('finalResults', (players) => {
+            const list = document.getElementById('compatibility-list');
+            list.innerHTML = '';
+            for (let i = 0; i < players.length; i++) {
+                for (let j = i + 1; j < players.length; j++) {
+                    let matches = 0, answered = players[i].answers.length;
+                    for (let k = 0; k < answered; k++) {
+                        if (players[i].answers[k] === players[j].answers[k] && players[i].answers[k] !== -1) matches++;
+                    }
+                    const pct = answered > 0 ? Math.round((matches / answered) * 100) : 0;
+                    let msg = pct === 100 ? "Almas Gêmeas 😍" : pct >= 70 ? "Parças demais 🤜🤛" : pct >= 40 ? "Dá pra conviver 🤔" : "Inimigos declarados ⚔️";
+                    list.innerHTML += `<li><strong>${players[i].name} & ${players[j].name}:</strong> <span style="color:#38ef7d;">${pct}%</span> <br> <small>${msg}</small></li>`;
+                }
+            }
+            showScreen('final-screen');
+        });
+
+        // ==========================================
+        // BANCO DE MISSÕES: 50 QUESTÕES POR TEMA (350 TOTAL)
+        // ==========================================
+        const bancoMissoes = {
+            festas: [
+                {q:"Em uma festa lotada, quantas pessoas você pegaria?",options:["Nenhuma, fico no celular","Uma, com sorte","Umas 3, jogando baixo","5 ou mais, o pai/mãe tá on!","Perdi as contas"]},
+                {q:"Vê o crush beijando outra pessoa. O que faz?",options:["Choro no banheiro","Pego amigo(a) pra dar troco","Finjo que não vi","Bebo mais pra esquecer","Pergunto se cabe mais um"]},
+                {q:"Desculpa clássica para não ir na festa:",options:["'Tô doente'","'Mãe não deixou'","'Tô sem grana'","'Acordo cedo amanhã'","Não respondo e sumo"]},
+                {q:"Fim de festa, 4 da manhã. Seu estado:",options:["Jogado no sofá","Procurando after","Comendo dogão na rua","Mandando áudio pro ex","100% sóbrio cuidando de todos"]},
+                {q:"Toca sua música favorita, você:",options:["Vou pro meio da roda","Canto baixinho","Puxo alguém pra dançar à força","Gravo story","Derramo bebida na empolgação"]},
+                {q:"Amigo sumiu na festa, onde ele tá?",options:["Fazendo amizade no banheiro","Pegando alguém no escuro","Foi expulso","Foi embora sem avisar","Passando mal no canto"]},
+                {q:"Derrubam bebida em você:",options:["Dou um escândalo","Choro e vou embora","Finjo que tá tudo bem","Xingo muito","Jogo bebida na pessoa de volta"]},
+                {q:"O open bar acaba cedo, e agora?",options:["Protesto contra o dono","Vou embora na hora","Bebo restos dos copos","Bebo água da torneira","Compro bebida cara e choro depois"]},
+                {q:"Festa à fantasia, como você vai?",options:["Fantasia mais cara","Roupa normal ('sou civil')","Improviso com papelão","A mais sexy possível","Meme que ninguém entende"]},
+                {q:"Ressaca no dia seguinte. Primeiro pensamento:",options:["'Nunca mais bebo'","'Pra quem mandei mensagem?'","'Cadê meu celular?'","'Por que beijei fulano?'","'Épico, bora de novo!'"]},
+                {q:"Toca funk antigo, sua reação:",options:["Desço até o chão","Julgo quem dança","Canto a letra toda gritando","Tento passinho do TikTok","Vou pro bar vazio"]},
+                {q:"Seu estilo de flerte:",options:["Olhares de longe","Cantada de pedreiro","Mando amigo perguntar","Ofereço bebida","Esbarro 'sem querer'"]},
+                {q:"O DJ é horrível, o que você faz?",options:["Vou pedir música pra ele","Fico sentado mexendo no Insta","Reclamo alto com todo mundo","Vou embora dormir","Danço mesmo assim"]},
+                {q:"Alguém vomita no meio da pista:",options:["Rio da cara da pessoa","Ajudo a limpar","Filmo pro close friends","Fujo pra não sujar o tênis","Continuo dançando do lado"]},
+                {q:"A festa tá muito desanimada:",options:["Puxo um trenzinho","Invento jogo de bebida","Vou embora de fininho","Reclamo da playlist","Bebo até ficar legal"]},
+                {q:"Você encontra seu/sua ex na festa:",options:["Finjo que não conheço","Vou lá dar oi (falso)","Bebo pra criar coragem","Vou embora na hora","Tento fazer ciúmes pegando outro"]},
+                {q:"Sua bebida oficial de festa:",options:["Cerveja gelada","Vodka com energético","Gin tônica chique","Corote ou Catuaba","Água ou refri"]},
+                {q:"Rolezinho em casa (resenha), qual seu papel?",options:["O que organiza e limpa","O que não paga nada","O que cuida da playlist","O que dorme primeiro","O que quebra alguma coisa"]},
+                {q:"Chega a conta no barzinho:",options:["Divido igual sem reclamar","Calculo até os centavos","Finjo que fui no banheiro","Pago tudo pra impressionar","Peço pra pagarem o meu"]},
+                {q:"Toca música sertaneja de corno:",options:["Sofro abraçado na garrafa","Ignoro, não gosto","Canto com a mão no peito","Dou risada dos emocionados","Ligo pro ex chorando"]},
+                {q:"Quem você beija primeiro?",options:["Quem chegar primeiro","O mais bonito da festa","O amigo do amigo","Ninguém, sou difícil","Qualquer um que respire"]},
+                {q:"Qual seu limite no Open Bar?",options:["Até o bar fechar","Até não lembrar meu nome","Bebo 3 copos e paro","Bebo pra compensar o ingresso","Não bebo, só pego gelo"]},
+                {q:"Descobre que a festa é numa chácara longe:",options:["Nem vou, muito longe","Vou de Uber e gasto fortunas","Imploro carona","Vou a pé se precisar","Durmo lá no chão mesmo"]},
+                {q:"Briga generalizada na festa:",options:["Grito 'Briga!' e assisto","Entro no meio pra apanhar","Vou pra longe gravar","Chamo os seguranças","Aproveito pra roubar bebida"]},
+                {q:"A comida da festa tá ruim:",options:["Como tudo mesmo assim","Peço iFood na porta","Reclamo pro aniversariante","Fico com fome","Roubo docinhos pra levar"]},
+                {q:"Você cai no meio da pista de dança:",options:["Levanto fingindo que foi passo de dança","Fico no chão rindo","Levanto com raiva","Vou embora de vergonha","Culpo o sapato"]},
+                {q:"A pessoa que você tá afim não te dá moral:",options:["Insisto até conseguir","Desisto e vou pra próxima","Bebo de tristeza","Falo mal dela pros amigos","Mando indireta no Twitter"]},
+                {q:"O banheiro tá um nojo:",options:["Prendo até chegar em casa","Vou no matinho lá fora","Tampo o nariz e vou","Limpo antes de usar (herói)","Uso o VIP escondido"]},
+                {q:"Qual roupa você usa em festa?",options:["A mais cara do armário","Roupa preta básica","Confortável pra pular","Ousada pra chamar atenção","A primeira que vi pela frente"]},
+                {q:"Você é barrado na entrada da festa:",options:["Faço barraco","Dou carteirada ('sabe quem sou?')","Choro pro segurança","Tento pular o muro","Vou comer um lanche e durmo"]},
+                {q:"Qual o melhor momento da festa?",options:["O começo, quando tô arrumado","O meio, ápice da loucura","O fim, comendo no after","A hora de ir embora dormir","O esquenta em casa"]},
+                {q:"Você ganha VIP mas amigos pagam:",options:["Entro sozinho e que se danem","Divido o valor com eles","Fico na porta com eles","Finjo que paguei também","Vendo o VIP pra desconhecido"]},
+                {q:"Alguém te dá um PT pra cuidar:",options:["Cuido como se fosse filho","Largo no canto e fujo","Dou água e mando pra casa","Filmo tudo pra rir amanhã","Rio tanto que passo mal também"]},
+                {q:"O que não pode faltar na bolsa/bolso?",options:["Trident e bala","Carregador portátil","Preservativo (otimista)","Engov e Dorflex","Dinheiro vivo"]},
+                {q:"Você vê um famoso na balada:",options:["Peço foto tremendo","Finjo costume e ignoro","Ofereço bebida pra ele","Grito o nome dele do nada","Falo que não sei quem é"]},
+                {q:"Qual sua desculpa pra ir embora cedo?",options:["'Meu cachorro tá sozinho'","'Amanhã trabalho cedo'","'Tô passando mal'","Saio sem dar tchau (saída à francesa)","'O Uber já chegou!'"]},
+                {q:"Seu estilo de foto na festa:",options:["Fazendo biquinho","Mostrando a bebida","Foto no espelho do banheiro","Não tiro foto, vivo o momento","Sorrindo normal, sem graça"]},
+                {q:"Qual a pior coisa numa festa?",options:["Música ruim","Cerveja quente","Gente empurrando","Fila pro banheiro","Gente chorando"]},
+                {q:"Festa na piscina (Pool Party):",options:["Entro na água de roupa e tudo","Fico na borda de óculos escuro","Tenho vergonha do corpo, não vou","Bebo água da piscina","Empurro todo mundo na água"]},
+                {q:"Amigo quer ligar pro ex bêbado:",options:["Tomo o celular dele","Deixo ligar pra rir depois","Incentivo ele a xingar o ex","Ligo pro meu também","Falo 'Faz o que seu coração manda'"]},
+                {q:"Você acorda numa cama desconhecida:",options:["Pulo a janela e fujo","Pergunto 'Onde eu tô?'","Faço café pra quem tiver lá","Deito e volto a dormir","Ligo pra mãe buscar"]},
+                {q:"Descobre que a bebida era falsificada:",options:["Continuo bebendo, já tô aqui","Exijo meu dinheiro de volta","Vou no hospital","Vomito por precaução","Eu que trouxe a bebida falsa"]},
+                {q:"Qual é o seu limite de horário?",options:["Meia-noite viro abóbora","2 da manhã tô bocejando","6 da manhã e tô no pique","Só paro quando o corpo desliga","Não durmo há 3 dias"]},
+                {q:"Você é o DJ por 5 minutos, o que toca?",options:["Funk pesadão","Rock clássico","Pop anos 2000","Sertanejo raiz","Música de anime/jogo"]},
+                {q:"Seu Uber foi cancelado 3 vezes na saída:",options:["Choro na calçada","Vou a pé se for menos de 5km","Durmo na calçada","Ofereço dinheiro extra pro motorista","Volto pra festa"]},
+                {q:"Pegou alguém e descobriu que era comprometido:",options:["Bloqueio a pessoa de tudo","Conto pro parceiro(a) dela","Finjo demência","Continuo pegando escondido","Choro de culpa"]},
+                {q:"O que você compra na porta da balada?",options:["Cachorro-quente prensadão","Chiclete superfaturado","Óculos juliet falsificado","Nada, sou pão duro","Água por 10 reais"]},
+                {q:"Festa no barco:",options:["Fico enjoado e vomito","Finjo que sou rico e tiro foto","Bebo até cair no mar","Sou o comandante da lancha","Nem vou, tenho fobia"]},
+                {q:"Como você se arruma pra festa?",options:["Demoro 3 horas","Tomo banho e visto a primeira roupa","Me arrumo no carro","Passo perfume e tá pronto","Peço roupa emprestada pro amigo"]},
+                {q:"Você prefere:",options:["Balada eletrônica cara","Paredão na rua de graça","Barzinho com voz e violão","Festa em casa com amigos","Ficar no quarto jogando"]}
+            ],
+            trabalho: [
+                {q:"Chefe manda mensagem às 20h de Sexta:",options:["Respondo na hora!","Visualizo, ignoro e sofro","Arquivo e só vejo segunda","Mando figurinha de 'boa noite'","Respondo seco e procuro emprego"]},
+                {q:"O que mais faz no escritório?",options:["Trabalho focado 100%","Fofoco na máquina de café","Finjo digitar coisas importantes","Vou ao banheiro 8 vezes","Como biscoito escondido"]},
+                {q:"Reunião que poderia ser email:",options:["Anoto tudo no caderno","Desenho no caderno pra disfarçar","Celular por baixo da mesa","Durmo de olho aberto","Faço pergunta pra esticar a reunião"]},
+                {q:"Roubaram sua marmita na geladeira:",options:["Mando email passivo-agressivo","Choro com fome no banheiro","Furo o pneu do culpado","Roubo a de outra pessoa","Peço iFood e deixo quieto"]},
+                {q:"Festa de Fim de Ano da firma:",options:["Fico 10 min, como e fujo","Bebo e falo verdades pro chefe","Faço networking (puxa-saco)","Danço estranho com o RH","Passo o rodo nos colegas"]},
+                {q:"O sistema inteiro caiu:",options:["Fico desesperado tentando arrumar","Comemoro mentalmente e tomo café","Arrumo minha gaveta","Atualizo a página a cada 2 seg","Vou embora sem avisar"]},
+                {q:"Chefe pede pra ligar a câmera na call:",options:["Ligo na hora, arrumado","Finjo que PC não tem webcam","Ligo de pijama e cabelo bagunçado","Digo que a internet caiu","Uso filtro de batata"]},
+                {q:"Colega ganha o dobro fazendo a mesma coisa:",options:["Exijo aumento no RH","Sofro calado","Trabalho só a metade do tempo","Mando currículo no expediente","Saboto o trabalho dele"]},
+                {q:"Seu papel no Amigo Oculto da firma:",options:["Dou presente bom, ganho meia","Dou sabonete e finjo pobreza","Compro algo no posto de gasolina","Tiro o chefe e dou presente caro","Finjo que esqueci a data"]},
+                {q:"Email xingando o cliente, mas com ele em cópia:",options:["Mudo de país e de nome","Digo que fui hackeado","Ligo chorando pedindo desculpas","Finjo que era de outro cliente","Tento apagar no servidor central"]},
+                {q:"Pega dois colegas casados se beijando:",options:["Espalho a fofoca em 5 min","Chantageio os dois","Saio andando de ré cego","Assisto em silêncio","Denúncia anônima pro RH"]},
+                {q:"Avaliação de Desempenho:",options:["Ataque de pânico dias antes","Exijo nota máxima, sou o cara","Concordo com tudo pra acabar logo","Choro na frente do chefe","Levo lista dos piores funcionários"]},
+                {q:"Você bate o ponto e o chefe te chama:",options:["Finjo que não ouvi e corro","Volto revirando os olhos","Atendo sorrindo (falso)","Grito 'Tô fora do horário!'","Anoto como hora extra mentalmente"]},
+                {q:"Fofoca quentinha no corredor:",options:["Sou o primeiro a saber","Sou o último a saber","Eu que inventei a fofoca","Fujo, detesto fofoca","Escuto e repasso com detalhes extras"]},
+                {q:"Qual seu perfil no Slack/Teams?",options:["Uso GIF pra tudo","Respondo só com 'Ok'","Demoro 3 horas pra ler","Sou o que manda textão","Uso status 'Ocupado' eternamente"]},
+                {q:"Banheiro da empresa:",options:["Faço de tudo, é minha segunda casa","Só faço o número 1","Tenho nojo, não uso","Durmo na cabine 15 min","Levo celular pra jogar joguinho"]},
+                {q:"Quem é você na Copa (Cozinha)?",options:["O que lava a louça de todos","O que larga a xícara suja","O que faz o café bom","O que come a comida dos outros","O que reclama da sujeira no grupo"]},
+                {q:"O ar-condicionado tá no 16ºC:",options:["Levo cobertor pro escritório","Gosto do frio, sou pinguim","Desligo escondido","Brigo com quem ligou","Trabalho tremendo os dentes"]},
+                {q:"Almoço da equipe na sexta-feira:",options:["Vou em todos, amo confraternizar","Sempre dou desculpa que tô sem grana","Vou só se o chefe pagar","Levo minha marmita no restaurante","Vou e sento no canto calado"]},
+                {q:"Qual sua desculpa pro atraso?",options:["'Trânsito horrível!'","'O ônibus quebrou'","'Passei mal de manhã'","Entro de fininho sem falar nada","Falo a verdade: perdi a hora"]},
+                {q:"Colega te pede ajuda num trabalho dele:",options:["Ajudo com prazer","Faço tudo pra ele (trouxa)","Digo que tô lotado de coisa","Ensino a fazer e saio fora","Cobro uma coxinha em troca"]},
+                {q:"Como você pede férias?",options:["Imploro de joelhos no RH","Mando email seco com as datas","Ameaço pedir demissão se não derem","Esqueço de pedir e perco prazo","Planejo 1 ano antes planilhado"]},
+                {q:"Você quebra um equipamento caro:",options:["Escondo os pedaços","Culpo o estagiário","Assumo a culpa e rezo","Digo que já tava quebrado","Tento consertar com fita durex"]},
+                {q:"Cliente barra-pesada gritando com você:",options:["Choro na hora","Grito mais alto que ele","Chamo o gerente e fujo","Ouço tudo sorrindo com ódio","Desligo na cara dele"]},
+                {q:"Dinheiro da vaquinha de aniversário:",options:["Dou R$50 e assino o cartão grande","Não dou nada e como o bolo","Sou o que cobra o dinheiro de todos","Dou moeda pra ajudar","Falto no dia pra não pagar"]},
+                {q:"Sua mesa de trabalho é:",options:["Minimalista e limpa","Parece que caiu uma bomba","Cheia de action figures e plantas","Cheia de post-it velho e copos","Sento em qualquer lugar (rotativo)"]},
+                {q:"Colega de trabalho tem bafo/cecê forte:",options:["Dou um desodorante de 'presente'","Falo na cara, sou sincero","Tampo o nariz quando ele chega","Mando email anônimo","Aguento firme e sofro"]},
+                {q:"Chefe adiciona você no Instagram:",options:["Aceito e bloqueio meus stories","Recuso e finjo que não vi","Aceito e apago fotos bebendo","Deleto minha conta na rede","Deixo seguir, não ligo"]},
+                {q:"Errou feio numa planilha importante:",options:["Tento arrumar de madrugada","Jogo a culpa no Excel","Assumo pro chefe antes de dar ruim","Finjo demência até alguém achar","Deleto o arquivo e digo que sumiu"]},
+                {q:"Você descobre que vai ser demitido amanhã:",options:["Roubo suprimentos do escritório","Apago todos meus arquivos","Xingo todo mundo no LinkedIn","Choro desesperado hoje","Vou pro bar beber logo"]},
+                {q:"O que te mantém nesse emprego?",options:["Os boletos","O salário bom","Os colegas legais (fofoca)","O vale-alimentação gordo","A preguiça de procurar outro"]},
+                {q:"Reunião às 18h de sexta-feira:",options:["Desligo o PC e não entro","Entro e fico mudo","Choro de raiva em off","Participo ativamente (psicopata)","Cai a 'internet' misteriosamente"]},
+                {q:"Você é promovido a chefe:",options:["Viro um tirano arrogante","Continuo amigo de todos","Dou aumento pra mim mesmo","Tenho Síndrome do Impostor","Delego tudo e durmo na sala"]},
+                {q:"O colega chato não para de falar:",options:["Coloco fone de ouvido ignorando","Falo 'tô ocupado agora'","Dou risada falsa de 5 em 5 min","Levanto e vou beber água","Começo a falar mais alto que ele"]},
+                {q:"Alguém roubou sua caneta favorita:",options:["Compro outra e sigo a vida","Faço um cartaz de 'PROCURA-SE'","Roubo 5 canetas da pessoa de volta","Vou no RH reclamar","Choro por causa de uma Bic"]},
+                {q:"Chefe faz piada sem graça:",options:["Dou a risada mais alta e falsa","Fico olhando sério pra ele","Rio por educação","Mando ele parar","Saio da sala fingindo tosse"]},
+                {q:"Dia de pagamento do salário:",options:["Torro tudo no mesmo dia","Pago boleto e choro no saldo zero","Guardo 50% (investidor)","Nem olho a conta, tenho medo","Compro blusinha na Shein na hora"]},
+                {q:"Como lida com o Estagiário?",options:["Trato como um filho","Escravizo mandando buscar café","Ignoro a existência dele","Ensino tudo errado de zoeira","Ele sabe mais que eu, peço ajuda"]},
+                {q:"Encontra o chefe no shopping domingo:",options:["Escondo atrás do manequim","Vou cumprimentar super feliz","Finjo que não vi e ando rápido","Falo só 'Oi' seco","Tiro foto e mando no grupo da firma"]},
+                {q:"Você odeia sua função atual:",options:["Trabalho com ódio","Faço o mínimo pra não ser demitido","Tento mudar de área na empresa","Reclamo no Twitter o dia todo","Crio uma startup pra competir"]},
+                {q:"Fizeram café ruim (chafé) na empresa:",options:["Bebo igual, preciso de cafeína","Jogo na pia e faço outro","Reclamo no grupo geral","Compro café caro por fora","Tomo chá pra compensar"]},
+                {q:"Dia de Home Office chovendo e frio:",options:["Trabalho da cama o dia todo","Trabalho focado na escrivaninha","Assisto Netflix com mouse jiggler","Durmo metade do dia","Ligo o PC e vou lavar louça"]},
+                {q:"Você precisa pedir reembolso:",options:["Gasto 2 reais e peço reembolso","Tenho preguiça e perco dinheiro","Invento notas falsas (golpe)","Sempre faço certinho","Guardo as notas na carteira e amassam"]},
+                {q:"Trabalho no fim de semana:",options:["Faço de boa, amo a empresa","Cobro hora extra 3x mais","Desligo o celular e sumo","Faço chorando no domingo à noite","Digo que tô viajando sem sinal"]},
+                {q:"Qual seu maior dom profissional?",options:["Enrolar nas reuniões","Fazer planilha colorida inútil","Pedir desculpas pro cliente","Achar culpados pros meus erros","Resolver B.O. rápido"]},
+                {q:"Sua postura no LinkedIn:",options:["Posto texto motivacional chato","Só entro pra procurar vaga","Curto e comento tudo (networking)","Invento mentiras no currículo","Acho a rede mais tóxica do mundo"]},
+                {q:"Alguém recebe crédito pelo seu trabalho:",options:["Brigo na frente de todos","Choro no banheiro em silêncio","Mando email provando que fui eu","Apago o arquivo do sistema","Deixo pra lá (paz de espírito)"]},
+                {q:"Dia do Aniversário na empresa:",options:["Levo bolo pra todos","Tiro folga pra não ver ninguém","Finjo que não é hoje","Cobro presentes de todo mundo","Fico sem graça quando cantam parabéns"]},
+                {q:"A impressora trava na sua vez:",options:["Bato na máquina até voltar","Largo lá e vou embora","Chamo o TI imediatamente","Tento abrir e quebro mais","Falo que já tava assim"]},
+                {q:"Qual sua definição de Sucesso no Trabalho?",options:["Ser rico e CEO","Não precisar trabalhar nunca mais","Sair 18:00 em ponto sem dor de cabeça","Ser amado pelos colegas","Ganhar vale-refeição infinito"]}
+            ],
+            absurdos: [
+                {q:"Acorda e é o último humano na Terra:",options:["Choro até desidratar","Vou no mercado comer de graça","Procuro base militar","Ando pelado na rua","Volto a dormir"]},
+                {q:"10 milhões, mas um Caracol Imortal te persegue:",options:["Viajo de avião fugindo","Prendo ele num cofre no oceano","Não aceito, muita ansiedade","Jogo sal nele","Tento fazer amizade"]},
+                {q:"Alienígena pede pra ver seu líder:",options:["Mostro o Presidente","Mostro minha mãe","Mostro o Neymar","Digo 'Sou eu'","Mostro meu cachorro"]},
+                {q:"Botão: Ganha 1 milhão, pessoa aleatória some:",options:["Aperto 100 vezes seguidas","Não aperto (moral)","Aperto 1 vez e rezo","Hackeio o botão","Aperto sem querer de olho fechado"]},
+                {q:"Descobre que a vida é The Matrix:",options:["Tento voar quebrando a regra","Ignoro e pago boleto","Viro vilão e destruo tudo","Ligo pro suporte técnico","Peço pra apagar memória e ser rico"]},
+                {q:"Luta até a morte, você prefere:",options:["1 Pato tamanho Cavalo","100 Cavalos tamanho Pato","Me rendo aos patos","Tento domesticar todos","Fujo chorando"]},
+                {q:"Pode falar com uma espécie de animal:",options:["Cachorros (amigos)","Gatos (segredos do universo)","Pombos (espiões)","Moscas (fofoqueiras)","Tubarões (mares)"]},
+                {q:"Vira fantasma, quem vai assombrar?",options:["Meu ex","Meu chefe","Gente aleatória no banho","Protejo amigos como anjo","Assombro políticos"]},
+                {q:"Melhor amigo foi mordido por Zumbi:",options:["Mato na hora","Tento amputar o braço","Escondo no porão","Deixo ele me morder também","Fujo e abandono"]},
+                {q:"Lâmpada mágica, mas Gênio é surdo:",options:["Faço sinal de dinheiro","Desenho dragão (dá errado)","Grito achando que resolve","Faço mímica de voar","Uso Google Tradutor em braille"]},
+                {q:"Acorda no corpo do pior inimigo por 24h:",options:["Transfiro dinheiro dele pra mim","Faço tatuagem na testa dele","Termino o namoro dele","Tento entender a vida dele","Cometo crime leve pra ele ser preso"]},
+                {q:"Toda vez que espirra, cai algo do céu:",options:["Notas de 100 reais","Pizzas de calabresa","Tijolos (caos)","Gatinhos fofos","Glitter"]},
+                {q:"Fica preso num loop temporal (mesmo dia):",options:["Cometo crimes sem consequência","Tento consertar a vida de todos","Durmo o dia inteiro","Aprender 50 idiomas","Tento quebrar a máquina do tempo"]},
+                {q:"Seu cachorro começa a falar português fluente:",options:["Levo pra TV pra ficar rico","Peço desculpa por coisas antigas","Pergunto se a ração é boa","Mando ele parar de latir pro vento","Interno num hospício (eu ou ele)"]},
+                {q:"Você ganha o poder da Invisibilidade:",options:["Roubo bancos impunemente","Entro de graça em shows/avião","Viro detetive espião","Prego peça assustando os outros","Tomo banho invisível no escuro"]},
+                {q:"Você só pode comer uma coisa pro resto da vida:",options:["Pizza de Queijo","Arroz com Feijão","Sushi","Hamburguer com batata","Comida de astronauta em pasta"]},
+                {q:"Encontra uma Maleta com 5 milhões na rua vazia:",options:["Pego e fujo de país","Levo na polícia (honesto/trouxa)","Deixo lá, é armadilha da máfia","Pego só um bolinho de notas","Escondo a maleta no mato e volto depois"]},
+                {q:"Acorda com 3 braços. O que faz?",options:["Viro lutador de MMA invencível","Viro pianista famoso","Corto fora no médico","Escondo debaixo da blusa","Abraço 3 pessoas ao mesmo tempo"]},
+                {q:"Você vira Presidente do Brasil amanhã:",options:["Roubo tudo e fujo","Tento consertar o país e sofro","Renuncio no primeiro dia","Decreto feriado toda segunda","Proíbo o uso de TikTok"]},
+                {q:"Você viaja 100 anos pro Passado:",options:["Invento o celular e fico rico","Aviso sobre guerras mundiais","Morro de gripe no primeiro dia","Viro profeta místico","Compro terrenos em NY"]},
+                {q:"Sua casa pega fogo, salva um item:",options:["Celular/PC","Álbum de fotos antigo","Bicho de estimação","Dinheiro vivo debaixo do colchão","Salvo eu mesmo e fujo"]},
+                {q:"Um pinguim bate na sua porta com uma mala:",options:["Deixo ele entrar e crio como filho","Chamo a polícia","Abro a mala pra ver o que tem","Vou pro Polo Sul devolver","Fecho a porta e acho que tô louco"]},
+                {q:"Você descobre que é um Clone:",options:["Procuro o original pra matar","Abraço meu original (irmão)","Tenho crise existencial","Ignoro e vou viver minha vida","Mando o original trabalhar por mim"]},
+                {q:"O sol não nasce mais. Escuridão eterna:",options:["Viro líder de um culto das trevas","Estoco comida e lanternas","Choro no canto da cama","Aproveito pra dormir mais","Faço festa neon no escuro"]},
+                {q:"Poder de ler mentes, mas só pensamentos constrangedores:",options:["Uso pra chantagear as pessoas","Fico traumatizado e isolado","Dou risada o dia inteiro","Conto pra todo mundo os podres","Uso tampão de ouvido mental"]},
+                {q:"Você deve lutar contra um dinossauro. Sua arma:",options:["Uma frigideira de ferro","Um estilingue e pedras","Um repelente gigante","Um controle remoto de TV","Conversa e diplomacia"]},
+                {q:"Troca de corpo com seu pet por um dia:",options:["Durmo 20 horas seguidas no sofá","Faço xixi no tapete de vingança","Mordo a visita chata","Tento falar pra assustar humanos","Corro atrás do próprio rabo"]},
+                {q:"Dinheiro chove na sua cidade, mas só moedas de 5 centavos:",options:["Levo guarda-chuva de ferro","Cato do chão até ficar rico","Fico em casa pra não morrer apedrejado","Faço barricada de moedas","Construo uma piscina estilo Tio Patinhas"]},
+                {q:"Uma nuvem te segue chovendo só em cima de você:",options:["Vendo água no deserto","Viro atração de circo","Uso capa de chuva eterna","Me afogo andando na rua","Vou morar no fundo do mar"]},
+                {q:"Sua voz vira a do Faustão pra sempre:",options:["Viro narrador de esportes","Nunca mais falo com ninguém","Grito 'Oloco bicho' o dia todo","Viro meme no TikTok","Tento fazer cirurgia de garganta"]},
+                {q:"A gravidade inverte e você cai pro céu:",options:["Amarro uma corda no pé da cama","Compro sapatos de chumbo","Voo abraçando um urubu","Grito caindo eternamente","Finjo que sou o Superman"]},
+                {q:"Seus dentes viram teclas de piano:",options:["Toco Beethoven com a língua","Nunca mais sorrio","Arranco todos e uso dentadura","Viro estrela do Got Talent","Mordo maçã e toco funk"]},
+                {q:"Você acorda com 10 metros de altura:",options:["Destruo a cidade sem querer","Jogo basquete na NBA","Vou morar na floresta (pé-grande)","Limpo janelas de prédios altos","Choro porque não caibo na cama"]},
+                {q:"O Wi-Fi da Terra acaba permanentemente:",options:["Cometo suicídio social","Volto a usar carta e pombo","Vou pra rua jogar bola e ser feliz","Viro o rei do cabo de rede local","Leio livros da estante pegando pó"]},
+                {q:"Descobre que os vegetais gritam quando cortados:",options:["Viro carnívoro exclusivo 100%","Uso fone de ouvido pra cozinhar","Rio do sofrimento da cenoura","Faço um velório pra salada","Como inteiro sem mastigar"]},
+                {q:"Você respira debaixo d'água, mas tem brânquias no pescoço:",options:["Uso cachecol no calor de 40 graus","Vou explorar Atlântida","Viro atração turística no mar","Vou morar com Bob Esponja","Fico no chuveiro o dia todo"]},
+                {q:"Você pode teletransportar, mas sempre chega pelado:",options:["Teletransporto só pro meu banheiro","Levo roupa na mão (não vai junto)","Teletransporto pra praia de nudismo","Tiro a roupa antes, teletransporto e fujo","Nunca uso o poder por vergonha"]},
+                {q:"Seus espirros causam explosões pequenas:",options:["Ando com focinheira antibomba","Viro terrorista de alergia","Limpo o quarto de poeira pra não morrer","Trabalho em demolição civil","Seguro o espirro e minha cabeça explode"]},
+                {q:"Tudo que você toca vira queijo mussarela:",options:["Abro uma pizzaria de sucesso","Morro de fome ou indigestão","Toco no meu inimigo de raiva","Viro um rato gigante","Uso luvas de borracha eternamente"]},
+                {q:"Encontra uma porta no quarto que dá pra Nárnia:",options:["Me mudo pra lá pra não pagar aluguel","Tranco a porta, tenho medo de leão","Cobro ingresso pra amigos entrarem","Faço amizade com os monstros","Invento condomínio fechado lá dentro"]},
+                {q:"Você suar Coca-Cola no verão:",options:["Bebo meu próprio suor","Vendo em copinhos na praia","Fico pegajoso e sofro o dia todo","Viro garoto propaganda da marca","Tomo banho de 5 em 5 minutos"]},
+                {q:"O governo proíbe a palavra 'Não':",options:["Falo 'Negativo' e burlo a lei","Concordo com tudo e me dou mal","Fico mudo pra sempre","Vou preso no primeiro dia","Crio uma nova linguagem de sinais"]},
+                {q:"Você viaja pro futuro e descobre que é o vilão da história:",options:["Abraço o lado negro da força","Tento consertar o futuro fazendo o bem","Mato minha versão do futuro","Rio maléficamente","Volto pro passado e durmo"]},
+                {q:"Ganha um relógio que pausa o tempo, mas você envelhece o dobro:",options:["Uso só pra dormir 12h por noite","Uso pra roubar dinheiro rápido","Não uso, tenho medo das rugas","Uso pra colar na prova da escola","Pauso o tempo e vivo sozinho no silêncio"]},
+                {q:"Seus dedos das mãos são substituídos por salsichas:",options:["Como meus próprios dedos de fome","Nunca mais digito no celular direito","Coloco ketchup e mostarda de luva","Escondo no bolso pra sempre","Viro mascote de churrasco"]},
+                {q:"Vê um Meteoro gigante vindo pra Terra (faltam 5 min):",options:["Posto no Twitter/X reclamando","Abraço quem tiver do lado","Tomo uma garrafa de vinho inteira","Tento fugir num bunker caseiro","Ouço minha música favorita sorrindo"]},
+                {q:"Descobre que Papai Noel é real e é um agiota:",options:["Pago minhas dívidas de natal passado","Contrato elfos como seguranças","Mando cartinha pedindo perdão","Tento roubar o trenó dele","Denuncio ele pro FBI do Polo Norte"]},
+                {q:"Seus pensamentos passam em um telão acima de você:",options:["Ando de capacete com chumbo","Isolo-me na montanha","Penso coisas absurdas pra chocar","Tento pensar só em coisas fofas (impossível)","Aceito meu cancelamento imediato"]},
+                {q:"A Lua cai na Terra e é feita de isopor:",options:["Pego um pedaço pra vender","Fico decepcionado com a ciência","Uso de flutuador na praia","Finjo que eu que derrubei","Continuo minha vida sem marés"]},
+                {q:"Você acorda sendo um sapo com consciência humana:",options:["Pulo pro rio e como moscas","Tento escrever 'Socorro' na lama","Procuro uma princesa pra beijar","Aceito meu destino verde e úmido","Vou pro brejo reclamar do governo"]}
+            ],
+            zoeira: [
+                {q:"Se a polícia batesse na porta, quem seria o culpado?",options:["O dono da casa","O quietinho (psicopata)","O que dá PT","O com cara de bandido","Eu, óbvio"]},
+                {q:"Apocalipse zumbi, quem morre primeiro?",options:["O que negocia com zumbi","O que tropeça no pé","O que grita e atrai a horda","O que tenta ser herói","Eu, por preguiça de correr"]},
+                {q:"Quem cai no golpe do Pix / Urubu do Pix?",options:["O emocionado do amor online","O desesperado por grana fácil","O analfabeto digital","O do Sorteio de iPhone","O 'esperto' que acha que não cai"]},
+                {q:"Se fôssemos uma banda, por que você seria expulso?",options:["Querer cantar tudo sozinho","Namorar fã e faltar no ensaio","Preguiça de decorar música","Ofender fã no Twitter","Roubar o dinheiro da turnê"]},
+                {q:"Barco à deriva, quem vira canibal primeiro?",options:["O sempre com fome","O marombeiro (proteína)","O quietinho (já planejava)","Eu, por irritação","O líder, pra 'salvar os outros'"]},
+                {q:"Quem casaria mês que vem e sumiria?",options:["O emocionado crônico","O 'nasci pra ser solteiro'","O que arranjou Sugar Daddy/Mommy","O que quer sair da casa dos pais","Eu, tchau pra vocês!"]},
+                {q:"No Reality Show, quem é o Vilão manipulador?",options:["O fofoqueiro","O que se faz de vítima","O que combina voto","A cobra disfarçada de santo","Eu seria o vilão aclamado"]},
+                {q:"Quem seria preso pelo crime mais idiota?",options:["Roubar placa de trânsito","Fugir sem pagar 10 reais","Brigar com poste","Mijar na porta da delegacia","Eu, invadindo lugar bizarro"]},
+                {q:"Quem tem o Histórico de Navegador mais perturbador?",options:["O do humor negro","O dos fetiches bizarros","O que pesquisa como ocultar corpos","O hipocondríaco de doenças","Eu nem apago, tenho orgulho"]},
+                {q:"Filme de terror, o que estaria fazendo?",options:["Sendo o assassino","Dizendo 'vamos nos separar'","Chorando no escuro","Tropeçando enquanto corre","Descobrindo o enigma e salvando geral"]},
+                {q:"Quem fundaria uma Seita obscura?",options:["O manipulador da lábia","O hippie esotérico","O doido da astrologia","O das teorias da conspiração","Eu serei o Deus de vocês"]},
+                {q:"'Oi Sumida' às 3h da manhã. Quem manda?",options:["O bêbado sem noção","O gado oficial","O que não supera o ex","O atirador de elite cego","Eu mando e bloqueio na hora"]},
+                {q:"Quem ganharia o BBB na base da pena?",options:["O que chora toda festa","O pobre coitado encenado","O que apanha nas provas de resistência","O excluído da casa","Eu, mentindo sobre minha vida triste"]},
+                {q:"Quem seria um ótimo Político corrupto?",options:["O líder do grupo","O que mente e você acredita","O que rouba isqueiro","O que promete pagar lanche e some","Eu, votem em mim!"]},
+                {q:"Quem é mais provável de lutar com um mendigo por engano?",options:["O que bebe e fica agressivo","O cego sem óculos","O pavio curto irritado","O paranoico do grupo","Eu, já fiz isso"]},
+                {q:"Quem vai ter 15 filhos por acidente?",options:["O que confia no método da tabelinha","O que não usa capa de chuva","O pai/mãe de pet emocionado","O romântico incurável","Eu, abro uma creche particular"]},
+                {q:"Quem falsificaria atestado médico pra ir na praia?",options:["O malandro raiz","O funcionário fantasma do mês","O que tem amigo no SUS","O que já faz isso todo mês","Eu, o doutor autorizou"]},
+                {q:"Quem compraria um curso de 'Fique Rico em 7 dias'?",options:["O que não quer trabalhar","O fã de Primo Rico/Coach","O desesperado por milagre","O empreendedor falido do grupo","Eu comprei e revendo pra vocês"]},
+                {q:"Quem é o Inimigo do Fim num rolê?",options:["O que toma energético infinito","O solteiro caçador","O que não tem casa pra voltar","O que tá devendo aluguel","Eu sou o after ambulante"]},
+                {q:"Quem seria cancelado no Twitter por uma piada de 2012?",options:["O que tem humor de 5ª série","O que ofende de graça","O militante que tropeça na própria lei","O tiozão do pavê","Eu, meu passado me condena"]},
+                {q:"Quem sobrevive numa ilha deserta cortando árvores?",options:["O escoteiro nerd","O marombeiro forte burro","O que assiste Largados e Pelados","O que come inseto cru","Ninguém, a gente morre no dia 1"]},
+                {q:"Quem arrumaria briga de trânsito e apanharia?",options:["O que xinga todo mundo","O que buzina por esporte","O motorista folgado","O que tem carro rebaixado","Eu bato boca e fecho o vidro correndo"]},
+                {q:"Quem do grupo é o espião do FBI infiltrado?",options:["O que nunca fala de si mesmo","O que não tem Instagram","O que faz perguntas suspeitas","O mais rico misteriosamente","Eu tô repassando tudo pra base"]},
+                {q:"Quem gastaria 1000 reais num Jogo Gacha (Genshin)?",options:["O viciado em anime","O que mora com a mãe","O que gasta no cartão da vó","O que chora por boneco 2D","Eu gasto mais que isso fácil"]},
+                {q:"Quem daria o nome de 'Enzo Gabriel' pro filho?",options:["O padrãozinho do grupo","O sem criatividade","O fã de moda modinha","O pai do ano","Eu já escolhi Enzo e Valentina"]},
+                {q:"Quem seria enganado por inteligência artificial?",options:["O que compartilha Fake News","O fã de robôs idoso","O que conversa com o ChatGPT sozinho","O assustado com a Matrix","Eu acharia que a IA tá flertando comigo"]},
+                {q:"Quem come o pedaço do bolo que caiu no chão?",options:["O morto de fome","A lei dos 5 segundos em pessoa","O que lambe o prato de pedreiro","O higiênico que pira vendo isso","Eu assopro e tá novo"]},
+                {q:"Quem vira coach motivacional no futuro?",options:["O chato palestrinha","O que não tem sucesso em nada","O falso gratiluz","O que acorda 5 da manhã no banho gelado","Eu já vendo curso online no link da bio"]},
+                {q:"Quem choraria vendo comercial de margarina?",options:["A manteiga derretida oficial","O TPM ambulante","O que chora com vídeo de cachorro","O dramático teatral","Eu finjo que caiu um cisco no olho"]},
+                {q:"Quem vira Sugar Baby por preguiça de trabalhar?",options:["O bonito e interesseiro","O cansado do capitalismo","O mimado do grupo","O com gostos caros e zero dinheiro","Eu já tenho meu perfil no site"]},
+                {q:"Quem esquece a toalha e sai pelado pedindo ajuda?",options:["O esquecido crônico","O sem vergonha exibicionista","O cabeça de vento","O desesperado que grita","Eu saio pingando água pela casa"]},
+                {q:"Quem tenta abrir pote de maionese com os dentes?",options:["O ogro da caverna","O impaciente raivoso","O sem força no braço","O dentista dele chora vendo","Eu faço e quebro o dente na hora"]},
+                {q:"Quem se perde no supermercado do próprio bairro?",options:["O que tem senso de direção quebrado","O distraído do celular","O que vai parar na seção de ração de gato","O que chora no SAC","Eu sigo minha mãe até hoje"]},
+                {q:"Quem vai virar aquele Tio(a) do Zap que manda Bom Dia com flores?",options:["O religioso fervoroso","O brega assumido","O que já faz isso ironicamente hoje","O que adora Corrente de Oração","Eu mando e exijo resposta amém"]},
+                {q:"Quem cai do palco tentando fazer Stage Dive (Pular na plateia)?",options:["O rockeiro bêbado","O emocionado com 3 fãs","O desengonçado que cai de cara","O magrelo que ninguém segura","Eu pulo e a galera abre a roda"]},
+                {q:"Quem seria confundido com um mendigo por causa da roupa?",options:["O estilo alternativo largado","O que usa camisa furada e chinelo no frio","O que não penteia o cabelo","O grunge 2024","Eu, conforto acima da estética sempre"]},
+                {q:"Quem roubaria um pinguim do zoológico e botaria na geladeira?",options:["O protetor dos animais surtado","O que tem ideias geniais de madrugada","O cleptomaníaco fofo","O doido por frio","Eu já fiz o buraco no congelador"]},
+                {q:"Quem compra um produto pirata achando que é original?",options:["O pão duro mão de vaca","O inocente ingênuo","O que jura que a 'Mike' é da Nike","O que negocia com camelô","Eu sei que é falso mas o importante é o visual"]},
+                {q:"Quem vai aparecer no Cidade Alerta correndo da polícia?",options:["O pilantra da gangue","O que foi de gaiato no navio","O que deve pensão","O que tentou invadir o vizinho","Eu mandando beijo pra câmera no camburão"]},
+                {q:"Quem quebra a cadeira de plástico do bar?",options:["O fortão pesado","O que balança na cadeira igual criança","O que dá risada pulando","O desastrado supremo","Eu sento devagar e ela esfarela"]},
+                {q:"Quem jura que viu um OVNI (Alien)?",options:["O noiado de ervas místicas","O que adora canal de mistério","O que confundiu poste com disco voador","O astrônomo amador chato","Eu fui abduzido e tenho provas na mente"]},
+                {q:"Quem toma banho de 2 horas e gasta toda a água?",options:["O que faz show de rock no chuveiro","O que chora pensando na vida","O que dorme em pé na água quente","O que tem a higiene duvidosamente demorada","Eu afogo meus problemas no boleto da conta"]},
+                {q:"Quem é pego no flagra tirando meleca do nariz no trânsito?",options:["O sem limites no carro","O distraído relaxado","O que acha que vidro escuro esconde tudo","O porcalhão assumido","Eu tiro, faço bolinha e jogo pela janela"]},
+                {q:"Quem vai tentar lutar Kung Fu depois de assistir Jackie Chan?",options:["O emocionado com cinema","O que já quebrou o braço pulando sofá","O que acha que é o Bruce Lee baiano","O mestre ninja de Taubaté","Eu dou um chute e distendo a virilha"]},
+                {q:"Quem passaria vergonha cantando karaokê desafinado e achando lindo?",options:["O que grita no microfone","O surdo musical com autoestima","O que canta Evidências chorando","O que rouba o microfone dos outros","Eu sou o Roberto Carlos da noite, me respeitem"]},
+                {q:"Quem inventa história mentirosa pra impressionar o crush?",options:["O mentiroso patológico","O que tem vida chata e roteiriza","O pescador do grupo","O romântico fanfiqueiro","Eu já falei que salvei 10 órfãos de um incêndio"]},
+                {q:"Quem é banido do Tinder por violar os termos de uso?",options:["O que manda foto não solicitada","O que cria perfil de casal (unicornio)","O que põe foto do cachorro no perfil e mente idade","O golpista flertando e vendendo Hinode","Eu levei ban por excesso de beleza (Mentira)"]},
+                {q:"Quem seria abduzido e os aliens devolveriam no dia seguinte?",options:["O chato que não para de falar","O insuportável reclamão","O que pede Wi-Fi na nave","O que tenta dar golpe no ET","Eu falaria tanto da minha ex que eles enjoariam"]},
+                {q:"Quem vira meme no Twitter após cair de cara no asfalto ao vivo?",options:["O desastrado com azar midiático","O que sempre aparece no fundo da TV","O TikToker fracassado","O que tropeça no ar","Eu viraria NFT do meu próprio tombo"]},
+                {q:"Quem tem mais chance de dominar o mundo acidentalmente?",options:["O preguiçoso que delega tudo perfeitamente","O idiota com muita sorte (estilo Homer Simpson)","O que apertou o botão vermelho sem querer","O que comprou criptomoeda na zoeira e ficou rico","Eu serei o imperador de vocês, preparem-se!"]}
+            ],
+            escola: [
+                {q:"Seu papel no Trabalho em Grupo:",options:["Fazia sozinho chorando","Só botava o nome","Formatava ABNT","Apresentava sem ter feito","Comprava cartolina"]},
+                {q:"Professor saiu por 5 minutos:",options:["Grito e bolinha de papel","Fone e durmo na carteira","Copio lição desesperado","Vigio a porta","Continuo anotando (nerd)"]},
+                {q:"Na hora do Recreio/Merenda:",options:["Comia a do governo 3x","Só cachorro quente/salgado","Lancheira saudável de casa","Salgado R$2 da cantina","Mendigava pedaço de todos"]},
+                {q:"No Fundão da sala você:",options:["Jogava Truco valendo a vida","Dormia babando","Fofocava sem parar","Desenhava coisa duvidosa","Eu era o nerd da frente"]},
+                {q:"Prova surpresa de matemática valendo nota:",options:["Choro desesperado","Tento colar pelo canto do olho","Marco tudo C em 5 min","Vou ao banheiro e sumo","Tiro de letra (gênio)"]},
+                {q:"Desculpa por não entregar lição:",options:["'Esqueci o caderno'","'Cachorro comeu'","'Você não passou isso!'","'Fiz no caderno errado'","Abaixo a cabeça e tomo zero"]},
+                {q:"Escreveram palavrão na lousa. E agora?",options:["Entrego os amigos","Assumo a culpa (herói)","Fico calado suando","Culpo quem faltou hoje","Fui eu mesmo (orgulho)"]},
+                {q:"Educação Física meio-dia no sol:",options:["Jogo bola até desmaiar","Sombra e celular","Vôlei e tomo bolada na cara","Cólica falsa pra não ir","Corro igual louco sem saber jogar"]},
+                {q:"Escondeu o estojo e o colega chorou:",options:["Devolvo pedindo desculpa","Jogo na bolsa de outro pra culpar","Dou risada","Finjo ajudar a procurar","Falo que foi fantasma"]},
+                {q:"Feira de Ciências, seu projeto:",options:["Vulcão de vinagre","Bateria de batata (quebrada)","Sistema solar de isopor mal pintado","Falto no dia","Grupo comprou trabalho pronto"]},
+                {q:"Chamado na Diretoria:",options:["Vou chorando de medo","Entro VIP de cabeça erguida","Culpo o professor","Chamo minha mãe antes","Nego até a morte"]},
+                {q:"Falsificar assinatura na prova vermelha:",options:["Copio na luz da janela","Peço pro amigo mais velho","Rabisco e rezo","Aviso a mãe e tomo sermão","Rasgo a prova e minto que sumiu"]},
+                {q:"Professor pegou seu celular na aula:",options:["Choro implorando","Dou celular falso quebrado","Aceito e pego no fim da aula","Levanto e brigo por ele","Mãe tem que buscar na diretoria"]},
+                {q:"Dia de chuva forte (alagamento):",options:["Falto e durmo feliz","Vou nadando pra não perder aula","Chego molhado e fedendo a cachorro","Vou de bota de plástico da mãe","O ônibus nem passa na minha rua"]},
+                {q:"Bateu o sinal de saída:",options:["Pulo a janela","Saio correndo empurrando todos","Arrumo material devagarzinho","Fico conversando na porta","Vou direto pro ponto de ônibus"]},
+                {q:"Primeiro dia de aula (Volta às aulas):",options:["Caderno bonito e caneta de 10 cores","Uso o caderno velho do ano passado","Chego atrasado e sem estojo","Choro porque acabou as férias","Procuro meus amigos desesperado"]},
+                {q:"Sua letra no caderno:",options:["Letra de médico egípcio","Garrancho mas eu entendo","Caligrafia perfeita de dar inveja","Misturo letra de forma e cursiva","Só digito, não sei mais escrever"]},
+                {q:"Guerra de bolinha de papel:",options:["Sou o franco-atirador","Levo na cara e choro","Professor pega a minha bolinha","Uso borracha pesada em vez de papel","Fico abaixado debaixo da mesa"]},
+                {q:"Cola na Prova:",options:["Borracha apagada com a resposta","Escrevo na coxa/braço","Passo papelzinho por baixo da mesa","Não colo, sou ético e tomo zero","Passo a cola errada pros outros de zoeira"]},
+                {q:"Reunião de Pais e Mestres:",options:["Fico em casa tremendo de medo","Minha mãe nem liga e não vai","Vou junto pra tentar me defender","Professor me elogia (sou um anjo)","Suborno o professor com chocolate"]},
+                {q:"Gostar de alguém na escola:",options:["Mando cartinha anônima","Fico olhando de longe igual psicopata","Peço pro amigo perguntar se quer ficar","Levo lanche pra impressionar","Tomo fora no meio do pátio inteiro"]},
+                {q:"Como você usa o uniforme escolar?",options:["Dobrado, customizado e com jaqueta","Padrão certinho da escola","Todo riscado de caneta no último dia","Tamanho GG parecendo um vestido","Esqueço a calça e tomo bronca na porta"]},
+                {q:"Alergia ou gripe na sala de aula:",options:["Espirro catarrento no caderno","Tusso até quase morrer e não bebo água","Pego atestado de 15 dias falso","Uso 10 rolos de papel higiênico da escola","Vou mesmo assim pra infectar os inimigos"]},
+                {q:"Apresentar trabalho lá na frente:",options:["Leio o papel com a mão tremendo","Esqueço tudo e invento na hora","Fico só segurando o cartaz mudo","Apresento igual um vendedor de TV","Choro e peço pra não apresentar"]},
+                {q:"Roubar giz do professor:",options:["Guardo no bolso e levo pra casa","Pinto a cara dos outros de branco","Esmago o giz pra fazer fumaça ninja","Sou o apagador oficial da lousa","Como giz (cálcio)"]},
+                {q:"A tia da cantina:",options:["Minha melhor amiga, dá lanche fiado","Tenho medo dela e da touca dela","Brigo porque o salgado tá frio","Não compro nada, sou liso","Sempre peço chorando um descontinho"]},
+                {q:"Sua foto do crachá / carteirinha:",options:["Parece um fugitivo do FBI","Bonito de Photoshop","Cabelo no olho emo 2010","Pisquei na hora da foto","Uso a de 4 anos atrás"]},
+                {q:"Qual seu castigo favorito da diretora?",options:["Ficar sem recreio","Copiar a regra 100 vezes","Ir pra biblioteca em silêncio (eu amo)","Ligar pros pais","Expulsão de 3 dias de férias"]},
+                {q:"Você rasgou a calça pulando o muro:",options:["Amarro a blusa de frio na cintura e sofro no calor","Ando igual caranguejo","Costuro com grampeador","Vou pra casa correndo chorando","Ando normal mostrando a cueca/calcinha"]},
+                {q:"Dia do Brinquedo (Infância):",options:["Levo brinquedo caro e não empresto","Levo brinquedo quebrado","Roubo o brinquedo do riquinho","Ninguém brinca comigo","Levo terra e pedras de casa"]},
+                {q:"Professor de Matemática:",options:["O pior inimigo da minha vida","Meu ídolo nerd","Velho que grita","Nunca entendi o que ele falava na lousa","Faz prova impossível de propósito"]},
+                {q:"Trabalho de Educação Artística/Artes:",options:["Sujei tudo de tinta guache","Cortei meu dedo com tesoura sem ponta","Fiz uma obra-prima renascentista","Colei macarrão num papelão feio","Minha mãe fez por mim de madrugada"]},
+                {q:"Quando o cachorro de rua entrava na escola:",options:["Tentava adotar e botar na mochila","Dava meu lanche pra ele","O inspetor batia vassoura e eu chorava","O cachorro mordia o diretor (herói)","Ficava com medo e subia na mesa"]},
+                {q:"Esquecer a mochila em casa:",options:["Como você faz isso? (Eu fiz)","Peço folha solta pros outros o ano todo","Finjo que deixei no armário","Vou embora pegar e não volto","Uso pasta de elástico velha e rasgada"]},
+                {q:"Alarme de incêndio falso:",options:["Grito 'FOGO' e causo o caos","Saio em fila indiana certinho","Fui eu que apertei o botão","Aproveito pra ir embora pra casa","Fico na sala, se morrer, morreu"]},
+                {q:"Assento no ônibus escolar/Van:",options:["Fundão fazendo bagunça","No colo de alguém porque lotou","Na frente conversando com o tio da van","Dormindo encostado na janela batendo a cabeça","Em pé surfando nas curvas"]},
+                {q:"Você encontra o professor no shopping:",options:["Escondo na loja de roupas","Grito o nome dele (falso íntimo)","Finjo que não vi","Acho bizarro ele ter vida fora da escola","Ele me vê e foge de mim"]},
+                {q:"Como passar de ano na raspagem?",options:["Chorando 0.5 décimo pro conselho","Fazendo trabalho de recuperação chato","Fazendo promessa pra santo","Mãe implorando na secretaria","Mágica e fé em Deus"]},
+                {q:"Lápis de cor Faber-Castell 48 cores:",options:["Ostentador da turma","Roubava os lápis de quem tinha","Eu usava caixa com 12 quebrados","Tinha mas não emprestava nem morrendo","Eu mastigava as pontas de todos"]},
+                {q:"O colega vomita na sala de aula:",options:["Vomito junto de nojo","Dou risada dele","Grito e pulo em cima da mesa","Ajudo o coitado com papel toalha","A sala fede a semana toda e eu reclamo"]},
+                {q:"Prova de História 50 páginas pra ler:",options:["Leio tudo fazendo resumo","Leio o primeiro parágrafo e desisto","Assisto documentário meia-boca no YouTube","Invento uma história nova na hora da prova","Faço mapa mental inútil"]},
+                {q:"O Livro Didático do governo:",options:["Cuidava igual filho","Vinha todo riscado de coisa suja de anos passados","Eu rasgava as páginas pra fazer aviãozinho","Perdia na primeira semana","Usava de escudo na guerra de papel"]},
+                {q:"Seu namoro na escola durou:",options:["3 anos, jurei casar","1 semana do intervalo","Só no pensamento platônico","Acabou porque era de outra sala","Terminamos no Orkut/MSN"]},
+                {q:"Dia de Festa Junina na Escola:",options:["Dançava quadrilha arrastado por nota","Só ia pra comer cachorro-quente","Ficava na barraca do beijo escondido","Fazia bagunça na prisão/correio elegante","Nem ia, odiava matuto"]},
+                {q:"Briga de portão na hora da saída:",options:["Eu era o que brigava e apanhava","Formava a roda e gritava 'Vai dar merda'","Gravava no celular tremendo","Corria pro ponto de ônibus com medo","Apanhava de graça tentando separar"]},
+                {q:"Professor novo e jovem chega na escola:",options:["Paixão platônica de todos","Zoavam até ele chorar na 1ª semana","Achava chato que tentava ser 'descolado'","Desrespeitava porque tinha cara de aluno","Virava meu melhor amigo de bar no futuro"]},
+                {q:"Sua reação a 'Cálculo com Letras' (Álgebra):",options:["Chorei e desisti da vida acadêmica","Entendi e achei fácil (psicopata)","Culpei o alfabeto por destruir a matemática","Aceitei a dependência precoce","Decorei a fórmula de Bhaskara pro resto da vida"]},
+                {q:"Formatura do Terceirão (Ensino Médio):",options:["Chorei horrores me despedindo de quem odeio","Não paguei a festa e fiquei de fora","Fui de terno/vestido alugado apertado","Bebi até cair na frente dos professores","Saí jurando que seríamos amigos pra sempre (mentira)"]}
+            ],
+            faculdade: [
+                {q:"O que mais te faz chorar na faculdade?",options:["O TCC / Monografia","Preço da xerox/cantina","Professor que gosta de reprovar","Grupo que não faz nada","Saber que a área não dá dinheiro"]},
+                {q:"Psicológico no fim do semestre:",options:["Café, energético e ódio","Já aceitei a DP","Surtando pra manter a nota","Nem sei quais matérias faço","Sobrevivendo por milagre"]},
+                {q:"Faltam 2 horas pro trabalho final:",options:["Entreguei semana passada","Fazendo a conclusão agora suando","Descobri o trabalho agora","Rezando pro portal cair","Implorando pro professor aceitar"]},
+                {q:"Onde você passa mais tempo no campus?",options:["No bar da frente","Na biblioteca fingindo estudar","Matando aula no pátio conversando","Na fila do bandejão","Chego, sento e vazo na hora"]},
+                {q:"Participação nas aulas:",options:["Pergunto até o que ele não sabe","Só balanço a cabeça concordando","Respondo a chamada e sumo","Perguntas óbvias por ponto","Mutado no EAD mental"]},
+                {q:"Ler 3 capítulos pra próxima aula:",options:["Leio marcando de verde","Resumo da internet 10 min antes","Pergunto no Zap se alguém leu","Durmo sem culpa","Leio e não entendo nada"]},
+                {q:"Seminário na frente de todos:",options:["Leio os slides de costas tremendo","TED Talk confiante","Seguro o passador mudo","Dou branco e invento coisas","Atestado falso no dia"]},
+                {q:"Pegou DP na pior matéria:",options:["Culpo o professor","Choro pelo dinheiro gasto","Já esperava, faço de novo","Choro na sala do coordenador","Desisto e vendo miçanga"]},
+                {q:"Professor se gaba de reprovar 90%:",options:["Puxo saco pra ser os 10%","Abaixo assinado contra ele","Estudo no YouTube","Xingo ele no grupo de Zap","Aceito reprovação no dia 1"]},
+                {q:"Morar em República:",options:["Louça de 15 dias na pia","Festa qui/sex/sab","Roubam minha comida","Irmandade pra vida","Miojo no almoço e janta"]},
+                {q:"Primeiro dia de Estágio:",options:["A faculdade não ensinou nada!","Sou escravo de tirar xerox/café","Gosto mais que estudar","Meu chefe tem minha idade","Quero voltar a ser só estudante"]},
+                {q:"Formatura chegando, o que sente?",options:["Medo do desemprego","Ansiedade pela festa","Alívio de acabar o inferno","Tristeza de deixar amigos","Dó do dinheiro da empresa de formatura"]},
+                {q:"Pagar boleto da faculdade atrasado:",options:["Pagamento de juros altíssimo com choro","Imploro desconto no financeiro","Nem pago, nome no Serasa","Pai paga e me xinga","Tranco o curso"]},
+                {q:"Trabalho de TCC (Artigo Final):",options:["Faço no ChatGPT e mudo as palavras","Sofro por 1 ano com orientador carrasco","Pago alguém pra fazer (ilegal)","Mudo de tema na última semana","Faço brilhantemente e tiro 10"]},
+                {q:"Bandejão (Restaurante Universitário) valendo 2 reais:",options:["Filé de frango duro de pombo","Acho barato e como 2 pratos","Encontro barata na salada (proteína)","Fila de 2 horas no sol","Passo mal de diarreia no dia seguinte"]},
+                {q:"Choppada Universitária com open bar duvidoso:",options:["Bebo Corote colorido e acordo na calçada","Pego o máximo de gente possível da atlética","Brigo por causa de bateria universitária","Vou só pela música, não bebo","Fujo de spray de pimenta na confusão"]},
+                {q:"Aulas de 7 da manhã no Inverno:",options:["Falto, meu sono é sagrado","Vou parecendo um zumbi de pijama","Chego às 8h só pra assinar presença","Bebo 2 garrafões de café puro","Durmo de óculos escuros na última fileira"]},
+                {q:"Trabalho em grupo com desconhecidos:",options:["Faço a parte de todo mundo pra garantir o 10","Mando minha parte no zap e sumo","Brigo com o folgado que sumiu","Reúno todos no Discord às 2 da manhã","Coloco o nome de quem não fez nada por dó"]},
+                {q:"Matéria Optativa Eletiva aleatória (Ex: História da Dança numa Engenharia):",options:["Faço só pra pegar crédito fácil","Me apaixono e quase mudo de curso","Reprovo de tão chata e inútil","Nem vou, só assino lista","Aprendo coisas inúteis pra puxar assunto em festa"]},
+                {q:"Calculadora Científica (Engenharia/Exatas):",options:["Gasto 500 reais numa HP pra bombar em Cálculo","Uso a de 15 conto do camelô e me lasco","Empresto e nunca mais me devolvem","Uso app no celular escondido","Não sei nem ligar essa bosta"]},
+                {q:"A biblioteca da faculdade:",options:["Vou pra dormir no ar condicionado","Pego livro e devolvo 3 meses atrasado com multa","Estudo de verdade focado nas cabines","Uso o Wi-Fi pra baixar filme pirata","Faço barulho e tomo bronca da bibliotecária chata"]},
+                {q:"Portal do Aluno (SIA/Sistema Online):",options:["Cai todo dia de prova","Design dos anos 90, não entendo nada","Esqueço a senha toda semana","Lanço recurso de nota e ele apaga meu histórico","Passo raiva tentando montar grade horária no desespero"]},
+                {q:"Grade Horária cheia de Janelas (Horários vagos):",options:["Vou pro bar beber às 10 da manhã","Durmo nos sofás do CA (Centro Acadêmico)","Volto pra casa e perco a última aula de preguiça","Fico lendo xerox atrasado sofrendo","Jogo baralho/UNO no pátio até dar a hora"]},
+                {q:"Xerox da esquina:",options:["Gasto meu salário inteiro lá","Sou brother do tio da xerox e pego fiado","Compro livro pirata encadernado torto","Peço pra tirar foto das folhas pra não pagar","Aposto que ele ganha mais que os professores"]},
+                {q:"Apresentação final de projeto Prático:",options:["A máquina/código quebra na frente do avaliador","Funciona perfeitamente e sou ovacionado","Choro explicando que a teoria tava certa","O protótipo pega fogo","Minto os resultados da pesquisa sem dó"]},
+                {q:"Fazer Amizades no primeiro semestre:",options:["Ando em bando igual patinho atrás da mãe","Julgo todo mundo silenciosamente","Me afasto de todos no 3º semestre por ódio","Conheço o amor da minha vida","Faço amizade com os veteranos pra pegar cola de prova"]},
+                {q:"Trote Universitário:",options:["Raspo a cabeça e me pinto de guache feliz","Fujo e não participo, acho ridículo","Me sujam de ovo e fedo a semana toda","Dou dinheiro no farol humilhado","Viro veterano carrasco e faço pior no ano seguinte"]},
+                {q:"Grupos de WhatsApp da Faculdade:",options:["Silencio por 1 ano e só vejo na prova","Brigo por política no grupo da sala","Mando sticker do Shrek aleatório","Sou o adm chato que pede silêncio e repassa aviso","Mando áudio chorando pedindo o link da aula"]},
+                {q:"Professor passa filme antigo nas aulas:",options:["Durmo os 120 minutos babando na carteira","Anoto cada detalhe pra prova, sou nerd","Saio pra 'ir ao banheiro' e vou embora","Fico no celular com brilho no zero","O filme não roda porque o pendrive dele tem vírus"]},
+                {q:"Escolher o tema do TCC:",options:["Quero salvar o mundo com meu tema complexo","Pego o tema mais fácil que achei no Google Acadêmico","Mudo 5 vezes e o orientador me odeia","Tema polêmico pra gerar briga na banca","O que o professor mandar eu obedeço"]},
+                {q:"Semana de Provas Finais (P2/AV2):",options:["Viro noites à base de Ritalina e RedBull","Chuto tudo em 15 minutos e confio no universo","Faço cola no rótulo da garrafa de água","Estudo o semestre inteiro, tô suave","Tenho crise de ansiedade e vomito antes da prova"]},
+                {q:"Eventos e Congressos (Semana Acadêmica):",options:["Vou só pra pegar certificado de horas complementares","Como nos coffeebreaks e sumo das palestras","Durmo nas cadeiras estofadas do auditório","Faço perguntas longas pra aparecer","Nunca vou, não ligo pra isso"]},
+                {q:"Professor faz piada racista/machista/polêmica:",options:["A sala cancela ele e denúncia no MEC","Rio de nervoso de cabeça baixa","Grito do fundo 'Isso dá processo, hein!'","Gravo áudio pra jogar no Twitter/X","Ignoro porque preciso passar na matéria dele"]},
+                {q:"Ir estudar na casa do colega:",options:["Acabamos pedindo pizza e assistindo série","Estudamos 10 minutos e fofocamos 4 horas","Ele estuda e eu atrapalho jogando videogame","Estudamos chorando abraçados","Pegamos a irmã/irmão do colega escondido"]},
+                {q:"Revisão de Nota da Prova:",options:["Brigo por 0.1 décimo com sangue nos olhos","Choro implorando e conto história triste familiar","Ele abaixa minha nota mais ainda pra aprender","Provo matematicamente que ele errou a correção","Aceito a nota injusta por medo do carrasco"]},
+                {q:"O que você bebe de manhã na facul?",options:["Pingado da padaria com pão na chapa","Café da máquina que tem gosto de ferrugem e água","Energético Monstro verde de jejum","Chá gelado pra fingir saúde","Água de torneira porque o dinheiro acabou"]},
+                {q:"Quando o professor esquece de apagar o quadro da turma anterior:",options:["Eu apago porque tenho TOC","Deixo lá pra aula dele atrasar lendo a lousa alheia","Desenho algo obsceno no meio da lousa suja","Tiro foto achando que é física quântica e era só receita","O professor apaga resmungando da vida"]},
+                {q:"Estudantes de outro curso:",options:["Temos rivalidade mortal, xingo em festas","Pego todos eles na choppada","Acho que o curso deles é mais fácil e reclamo","Tenho inveja da infraestrutura do prédio deles","Nem sei quem são, vivo na minha bolha"]},
+                {q:"Encontrar o amor da vida no campus:",options:["Namoro 4 anos e termino no TCC por estresse","Me apaixono platonicamente e nunca falo com a pessoa","Pego todo mundo pra não me apegar a ninguém","Caso e tenho 3 filhos devendo FIES","Descubro que a pessoa trancou o curso e sumiu"]},
+                {q:"A formatura na Colação de Grau:",options:["Tropeço no palco pegando o canudo vazio","Faço dancinha no palco e passo vergonha na família","Não vou, pego o diploma na secretaria de calça jeans","Choro abraçado com o reitor que não conheço","Jogo o capelo pra cima e cai na cara do idoso do lado"]},
+                {q:"Sua opinião sobre o Estágio Não Remunerado:",options:["Escravidão moderna disfarçada de aprendizado","Aceito sorrindo porque preciso da carga horária","Denuncio no Ministério do Trabalho anonimamente","Não faço, sou bancado pelos pais graças a Deus","Trabalho 12h/dia de graça achando que vou ser contratado (trouxa)"]}
+            ],
+            jogos: [
+                {q:"Desculpa padrão quando morre no jogo:",options:["'É o lag! O ping subiu!'","'O mouse/controle falhou!'","'O time é um lixo!'","'Boneco inimigo quebrado!'","'Errei, fui moleque'"]},
+                {q:"Classe principal em RPG:",options:["Tank (gosta de apanhar)","Healer (babá de marmanjo)","DPS (só matar e dar dano)","Stealth (sorrateiro que rouba)","Mago (poderzinho brilhante de longe)"]},
+                {q:"O que faz com itens raros?",options:["Uso no primeiro chefão","Guardo pro fim do jogo e zero sem usar","Vendo pra comprar skin","Uso sem querer andando","Dou pros amigos por dó"]},
+                {q:"Quanto gastou em skins/passes?",options:["Nada, F2P na raça","Só passe de batalha","Uns 100 reais, arrependi","Vergonha da fatura","Dava pra comprar um carro zero"]},
+                {q:"Ao escolher um jogo, o que importa?",options:["Gráficos ultra realistas","História que faz chorar","Gameplay viciante","Multiplayer com amigos","Ser barato ou grátis"]},
+                {q:"Encontra um Camper (zé casinha):",options:["Rush nele com sangue nos olhos","Xingo no chat de voz","Dou a volta pra matar pelas costas","Taco granada e corro","Morro pra ele e quebro teclado"]},
+                {q:"Chat de voz tá tóxico:",options:["Muto todos na hora","Xingo de volta o dobro","Música estourada no mic","Tento pacificar (coach mental)","Choro e quito"]},
+                {q:"Ping bate 999ms no tiroteio:",options:["Grito com a internet","Aperto botões e rezo","Corro pra parede","Culpo família usando Wi-Fi","Aceito a morte em silêncio"]},
+                {q:"Mãe grita 'Vem jantar!' jogando online:",options:["'Falta 5 min!' (falta 40)","Deixo boneco na base","Levo prato pro PC","Quito, família em primeiro lugar","Ignoro e dá briga"]},
+                {q:"Criando Nickname:",options:["Nome sério/intimidador","Piada 5ª série","xX_Nome_Xx anos 2000","Bato a mão no teclado","Nome do meu cachorro"]},
+                {q:"Customização de personagem:",options:["3 horas pra ficar perfeito","Crio monstro horrível","'Aleatório' e bora jogar","A pessoa mais linda do mundo","Tento fazer o Shrek ou bizarro"]},
+                {q:"Jogando Terror à noite:",options:["Fone no talo, corajoso","Luz acesa e som baixo","Pause de 5 em 5 min","Vejo YouTube no lugar","Grito e acordo vizinhos"]},
+                {q:"Você encontra um Glitch (Bug) hilário:",options:["Aproveito pra farmar dinheiro/XP infinito","Gravo clipe pra mandar pros amigos","Tento replicar e morro","Reclamo no fórum da empresa com ódio","Dou risada e sigo a vida ignorando o bug"]},
+                {q:"Você termina um jogo com História incrível (Ex: The Last of Us, RDR2):",options:["Fico olhando pro teto chorando vazio por 3 dias","Começo um Novo Jogo+ na mesma hora","Vou ver 10 horas de teoria e lore no YouTube","Falo pra todo mundo que é uma obra-prima chata","Zero, fecho e vou jogar FIFA/Fortnite no automático"]},
+                {q:"Qual seu comportamento em jogos de Mundo Aberto?",options:["Faço todas as missões secundárias antes da principal","Rush na história principal, não tenho tempo a perder","Mato todos os NPCs inocentes que encontro","Passo 20 horas pegando florzinha e explorando mato","Uso Fast Travel o tempo todo por preguiça extrema"]},
+                {q:"Modo Ranqueado (Competitivo):",options:["Sou Prata/Bronze eterno e culpo o sistema","Tryhardo suando frio até pegar Mestre/Desafiante","Só jogo ranqueada de zoeira com os amigos bêbados","Tenho medo de jogar e perder ponto, só jogo Casual","Pago alguém pra subir minha conta (Elojob) e me acho"]},
+                {q:"Tutorial do jogo no começo:",options:["Pulo tudo rápido apertando X/A igual louco","Leio cada palavra anotando mentalmente","Tento matar o boneco do tutorial de raiva","Deixo rolando e vou pegar água na cozinha","Faço o tutorial e esqueço os botões 10 minutos depois"]},
+                {q:"Encontra um baú no meio da sala vazia:",options:["Abro correndo sem olhar em volta (Sou ganancioso)","Atiro no baú de longe (É um Mimic/Armadilha)","Verifico o teto e as paredes com cautela extrema","Mando o companheiro de equipe abrir pra ver se ele morre","Ignoro o baú, tenho medo da morte em jogos difíceis"]},
+                {q:"Faltando 1% de HP no chefe de Dark Souls/Elden Ring:",options:["Fico ganancioso, tento dar o último hit e morro miseravelmente","Uso todos os itens de cura estocados pra garantir","Fujo pra longe e atiro uma pedrinha ou flecha covarde","Grito 'VEM PRO PAU!' e finalizo com parry épico","Minha luz acaba e o PC desliga bem na hora"]},
+                {q:"Seu amigo ruim te chama pra jogar competitivo (Dota/LoL/CS):",options:["Recuso inventando desculpa esfarrapada de que vou dormir","Aceito e xingo ele a partida inteira carregando o peso morto","Entro na conta secundária Smurf pra não estragar meu rank","Jogo bêbado pra não levar a sério e passo raiva igual","Carrego ele feliz da vida porque amizade > elo"]},
+                {q:"Comprar jogos no Lançamento (70 Dólares / 350 Reais):",options:["Faço Pré-venda da edição Deluxe cara e jogo no primeiro segundo","Espero abaixar de preço 5 anos depois em promoção na Steam","Assino Game Pass/PS Plus, sou pobre premium","Baixo pirata no Torrent (Perdão, Nintendo)","Compro, vejo que é ruim (Cyberpunk vibes) e choro no banho"]},
+                {q:"O que você faz nas Telas de Carregamento demoradas?",options:["Fico mexendo no celular no TikTok rodando o feed","Bebo água e estico as pernas (Vida saudável)","Leio as dicas inúteis da tela de loading","Fico girando o modelo 3D do personagem se der","Xingo o HD do meu PC da Xuxa querendo comprar um SSD"]},
+                {q:"Você entra numa Caverna escura no jogo de sobrevivência (Minecraft/Terraria):",options:["Coloco 500 tochas em cada bloco, cego de tanto medo","Entro com 1 picareta, cavo reto pra baixo e caio na lava","Mato o bicho mais forte e pego os minérios todos","Me perco lá dentro por 4 horas andando em círculos","Cavo um buraco 1x1, choro e espero amanhecer (Covarde)"]},
+                {q:"Sua reação ao ver 'Game Over':",options:["Suspiro pesado, levanto e vou tomar água gelada","Aperto 'Tentar Novamente' na fúria em menos de 1 milissegundo","Soco a mesa quebrando a madeira (Modo Rage Quit)","Culpo o controle do videogame achando que tá com drift","Desinstalo o jogo com ódio mortal e baixo de novo amanhã"]},
+                {q:"Qual seu estilo de Jogo de Luta (Mortal Kombat/Street Fighter)?",options:["Aperto todos os botões juntos fazendo barulho no controle","Decoro combos de 30 hits e sou o terror do campeonato","Só pego personagem apelão (Ryu do hadouken ou Scorpion)","Fico no canto da tela mandando poderzinho (Spammer)","Perco feio pro irmão caçula que bate a cara no controle e choro"]},
+                {q:"O que você constrói num jogo de fazenda/construção (Stardew Valley/Sims):",options:["Plantação simétrica automatizada rendendo milhões","Faço uma caixa quadrada feia só pra ter onde dormir","Prendo os NPCs no porão tirando a escada da piscina (Sádico)","Tento pegar todos os romances da cidade e caso com a pedra","Foco só em decorar a casinha com itens fofos e deixo de farmar"]},
+                {q:"Quando o jogo manda você 'Seguir o NPC' que anda devagar:",options:["Corro e paro, corro e paro, xingando ele na mente","Ando devagarzinho encenando (Roleplay imersivo)","Começo a dar tiros na cabeça dele de tédio pra ver se corre","Vou checar o celular enquanto o boneco velho caminha lento","Fico pulando em volta dele igual um canguru epilético de DDA"]},
+                {q:"Seu carro no GTA ou Need for Speed:",options:["Tunado rosa neon chocado no chão, ridículo mas rápido","Carro preto fosco elegante, não bato nunca dirigindo perfeitamente","Roubo o primeiro carro lixo da rua, bato 10x e pego fogo","Dirigo o carro de polícia e prendo os NPCs inocentes (Xerife)","Compro carro de 1 milhão e deixo na garagem pra sempre com dó"]},
+                {q:"Onde você gasta mais tempo em jogos MMO (WoW/FFXIV)?",options:["Horas no leilão comprando e vendendo barato pra ficar rico (Faria Limer)","No chat global falando besteira com gente estranha","Em Raids complexas com 40 pessoas berrando no Discord","Pescando sozinho isolado da sociedade em um lago virtual","Mudando a cor da bota pra combinar com o chapéu (Fashionista)"]},
+                {q:"Quando a bateria do controle pisca 'Fraca' no meio do combate online:",options:["Tento achar cabo desesperado e arranco o fio do fone no processo","Grito 'VOU CAIR' no fone de voz pro time e rezo muito forte","O controle morre, eu morro, meu time perde, eu choro na cama","Tenho 2 controles carregados já do lado por precaução divina","Jogo até a última gota de carga e pauso quando apaga (Emoção)"]},
+                {q:"Qual a coisa que mais te ofende que um inimigo pode fazer?",options:["Dar T-bag (agachar repetidamente no seu cadáver) sem motivo","Mandar 'gg ez' no chat global depois de uma partida suada de 1 hora","Ficar escondido na grama 100% do jogo e te matar com tiro de sniper","Te finalizar com um soco ou arma branca sendo que tinha fuzil","Zombar da sua skin barata de passe grátis de pobre premium"]},
+                {q:"Você encontra um item consumível lendário 'Elixir Supremo':",options:["Bebo logo na primeira briga média pra me achar forte demais","Guardo no inventário até o último chefe e acabo zerando sem usar","Vendo no mercador por ouro infinito porque tô liso","Mando meu pet inútil beber sem querer num clique errado","Uso, percebo que não fez efeito imediato, e acho que tá bugado"]}
+            ]
+        };
+    </script>
+</body>
+</html>
